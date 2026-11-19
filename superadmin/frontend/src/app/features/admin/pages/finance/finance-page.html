@@ -1,0 +1,64 @@
+<section class="page-head">
+  <div>
+    <h1>Finance & Payouts</h1>
+    <p>Revenue overview & partner payout processing.</p>
+  </div>
+</section>
+
+<div class="stat-row" style="grid-template-columns:repeat(4,1fr)">
+  <div class="stat-card">
+    <div class="stat-top"><span class="stat-trend up">▲ 12%</span></div>
+    <div class="stat-num">₹{{ ops.monthRevenue().toLocaleString('en-IN') }}</div>
+    <div class="stat-lbl">Revenue This Month</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-num">{{ ops.pendingPayouts().length }}</div>
+    <div class="stat-lbl">Payouts Pending</div>
+  </div>
+  <div class="stat-card alert">
+    <div class="stat-num">₹{{ ops.pendingPayoutTotal().toLocaleString('en-IN') }}</div>
+    <div class="stat-lbl">Pending Payout Amount</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-num">{{ ops.payouts().filter(p => p.status === 'paid').length }}</div>
+    <div class="stat-lbl">Payouts Paid</div>
+  </div>
+</div>
+
+<div class="panel">
+  <div class="panel-head">
+    <div class="panel-title">Partner Payouts</div>
+  </div>
+  <div class="tbl-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Payout ID</th>
+          <th>Partner</th>
+          <th>Period</th>
+          <th>Jobs</th>
+          <th>Amount</th>
+          <th>Status</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (p of ops.payouts(); track p.id) {
+        <tr>
+          <td><strong>{{ p.id }}</strong></td>
+          <td>{{ p.partner }}</td>
+          <td>{{ p.period }}</td>
+          <td>{{ p.jobs }}</td>
+          <td>₹{{ p.amount.toLocaleString('en-IN') }}</td>
+          <td><span class="status-pill" [class]="p.status === 'paid' ? 'ok' : 'warn'">{{ p.status }}</span></td>
+          <td>
+            @if (p.status === 'pending') {
+            <button class="btn sm primary" (click)="ops.markPayoutPaid(p.id)">Mark Paid</button>
+            }
+          </td>
+        </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+</div>

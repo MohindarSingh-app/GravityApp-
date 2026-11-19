@@ -1,0 +1,60 @@
+<section class="page-head">
+  <div>
+    <h1>Activity Log</h1>
+    <p>Server-recorded sign-ins, account updates, and permission changes.</p>
+  </div>
+  <button class="refresh-button" type="button" (click)="load()" [disabled]="loading()">
+    {{ loading() ? 'Refreshing…' : 'Refresh' }}
+  </button>
+</section>
+
+@if (error()) {
+  <div class="feedback error" role="alert">{{ error() }}</div>
+}
+
+<div class="stat-grid">
+  <div class="stat-card">
+    <span class="stat-label">Successful logins</span>
+    <span class="stat-value">{{ counts().logins }}</span>
+  </div>
+  <div class="stat-card">
+    <span class="stat-label">Failed logins</span>
+    <span class="stat-value">{{ counts().failed }}</span>
+  </div>
+  <div class="stat-card">
+    <span class="stat-label">Administration changes</span>
+    <span class="stat-value">{{ counts().changes }}</span>
+  </div>
+</div>
+
+<div class="filter-row">
+  @for (item of filters; track item) {
+    <button class="chip" [class.on]="filter() === item" (click)="setFilter(item)">
+      {{ filterLabel(item) }}
+    </button>
+  }
+</div>
+
+<div class="timeline">
+  @if (loading()) {
+    <div class="empty">Loading audit events…</div>
+  } @else {
+    @for (event of entries(); track event.id) {
+      <div class="tl-item" [attr.data-type]="event.action">
+        <span class="tl-dot"></span>
+        <div class="tl-body">
+          <strong>{{ filterLabel(event.action) }}</strong>
+          <small>
+            {{ event.actorEmail || 'System' }} · {{ event.targetType }} {{ event.targetId }}
+          </small>
+          @if (eventDetails(event.details); as details) {
+            <small>{{ details }}</small>
+          }
+        </div>
+        <time>{{ event.at | date: 'medium' }}</time>
+      </div>
+    } @empty {
+      <div class="empty">No audit events match this filter.</div>
+    }
+  }
+</div>

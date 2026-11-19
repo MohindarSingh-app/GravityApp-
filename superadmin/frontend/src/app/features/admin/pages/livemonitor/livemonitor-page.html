@@ -1,0 +1,91 @@
+<section class="page-head">
+  <div>
+    <h1>Live Monitor</h1>
+    <p>Real-time partner & job activity — refreshed every 30 seconds.</p>
+  </div>
+  <span class="live-badge">● LIVE</span>
+</section>
+
+<div class="stat-row" style="grid-template-columns:repeat(6,1fr)">
+  <div class="stat-card" style="border-color:#86efac">
+    <div class="stat-top"><span class="live-badge">● LIVE</span></div>
+    <div class="stat-num" style="color:#15803d">{{ ops.partnersOnline().length }}</div>
+    <div class="stat-lbl">Partners Online</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-top"><span class="badge b-b">now</span></div>
+    <div class="stat-num">{{ ops.liveJobs().length }}</div>
+    <div class="stat-lbl">Jobs In Progress</div>
+  </div>
+  <div class="stat-card alert">
+    <div class="stat-top"><span class="badge b-r">action</span></div>
+    <div class="stat-num">{{ ops.slaRiskJobs().length }}</div>
+    <div class="stat-lbl">SLA Breach Risk</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-top"><span class="badge b-y">queue</span></div>
+    <div class="stat-num">{{ ops.activeRepairs().length }}</div>
+    <div class="stat-lbl">Repair Tickets</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-top"><span class="badge b-g">ok</span></div>
+    <div class="stat-num">{{ ops.companies.length }}</div>
+    <div class="stat-lbl">Active Companies</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-top"><span class="badge b-b">day</span></div>
+    <div class="stat-num">₹48,200</div>
+    <div class="stat-lbl">Today's Revenue</div>
+  </div>
+</div>
+
+<div class="grid-2">
+  <div class="panel">
+    <div class="panel-head">
+      <div class="panel-title">Live Jobs</div>
+    </div>
+    <div class="tbl-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Job</th>
+            <th>Partner</th>
+            <th>SLA</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (job of ops.liveJobs(); track job.id) {
+          <tr>
+            <td><strong>{{ job.id }}</strong><small>{{ job.service }}</small></td>
+            <td>{{ job.partner ?? '— Unassigned —' }}</td>
+            <td>@if (job.slaMinsLeft !== null) { {{ job.slaMinsLeft }} min } @else { — }</td>
+            <td><span class="status-pill" [class]="job.status === 'sla-risk' ? 'bad' : 'info'">{{ job.status ===
+                'sla-risk' ? 'SLA risk' : 'In progress' }}</span></td>
+          </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head">
+      <div class="panel-title">Partners Online</div>
+    </div>
+    <div class="panel-body card-list">
+      @for (p of ops.partnersOnline(); track p.id) {
+      <div class="op-card" style="padding:12px">
+        <div class="oc-icon">{{ p.name.charAt(0) }}</div>
+        <div class="oc-main">
+          <strong>{{ p.name }}</strong>
+          <small>{{ p.type }} · ★ {{ p.rating }} · {{ p.jobsDone }} jobs</small>
+        </div>
+        <span class="live-badge">●</span>
+      </div>
+      } @empty {
+      <p style="color:var(--t-3);text-align:center">No partners online.</p>
+      }
+    </div>
+  </div>
+</div>

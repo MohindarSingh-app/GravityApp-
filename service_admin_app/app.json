@@ -1,0 +1,35 @@
+{
+  "name": "EnergyHub",
+  "displayName": "Gravity Hub Service Admin",
+  "expo": {
+    "name": "EnergyHub",
+    "displayName": "Gravity Hub Service Admin",
+    "version": "1.0.0",
+    "slug": "EnergyHub",
+    "orientation": "portrait",
+    "icon": "./src/assets/icon-1024.png",
+    "splash": {
+      "image": "./src/assets/logo.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#FFFFFF"
+    },
+    "updates": {
+      "fallbackToCacheTimeout": 0
+    },
+    "assetBundlePatterns": ["**/*"],
+    "android": {
+      "package": "com.gravityhub.serviceadmin",
+      "versionCode": 1,
+      "permissions": [
+        "INTERNET",
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "READ_MEDIA_IMAGES",
+        "RECORD_AUDIO",
+        "VIBRATE"
+      ]
+    }
+  }
+}

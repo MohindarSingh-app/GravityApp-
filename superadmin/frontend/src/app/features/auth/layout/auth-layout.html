@@ -1,0 +1,57 @@
+<div class="auth-shell">
+  <main class="auth-main">
+    <button
+      class="auth-theme-toggle"
+      type="button"
+      (click)="toggleMode()"
+      [attr.aria-label]="theme.mode() === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'"
+      [title]="theme.mode() === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'"
+    >
+      @if (theme.mode() === 'dark') {
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <circle cx="12" cy="12" r="4" />
+          <path d="M12 2v2m0 16v2M4.93 4.93l1.42 1.42m11.3 11.3 1.42 1.42M2 12h2m16 0h2M4.93 19.07l1.42-1.42m11.3-11.3 1.42-1.42" />
+        </svg>
+      } @else {
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+          <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8Z" />
+        </svg>
+      }
+    </button>
+    <section class="form-card" aria-label="Energy Hub administrator sign in">
+      <aside class="visual-panel">
+        <div class="visual-scene" aria-hidden="true">
+          <div class="scene-orbit"></div>
+          <div class="scene-grid"></div>
+          <div class="scene-cube">
+            <span class="cube-face cube-front"><span class="cube-bolt"></span></span>
+            <span class="cube-face cube-side"></span>
+            <span class="cube-face cube-top"></span>
+          </div>
+          <span class="scene-spark scene-spark-one"></span>
+          <span class="scene-spark scene-spark-two"></span>
+        </div>
+        <div class="visual-copy">
+          <span class="visual-eyebrow"><span aria-hidden="true"></span> ENERGY OPERATIONS</span>
+          <h1>Powering a brighter future.</h1>
+          <p>One secure workspace for smarter energy management.</p>
+        </div>
+        <div class="visual-footer">
+          <span class="status-dot" aria-hidden="true"></span>
+          <span>Reliable. Clear. Connected.</span>
+        </div>
+      </aside>
+      <div class="auth-panel">
+        <a class="brand-logo" routerLink="/auth/login" aria-label="Energy Hub home">
+          <span class="brand-mark" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none">
+              <path d="M13 2 4.5 13.5H11L9.5 22 19 9.5h-6.5L13 2Z" fill="currentColor"/>
+            </svg>
+          </span>
+          <span>Energy Hub <small>ADMIN CONSOLE</small></span>
+        </a>
+        <router-outlet></router-outlet>
+      </div>
+    </section>
+  </main>
+</div>

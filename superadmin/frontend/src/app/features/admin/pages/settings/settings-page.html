@@ -1,0 +1,48 @@
+<section class="page-head">
+  <div>
+    <h1>Settings</h1>
+    <p>Platform security & alerts — session, throttling, password policy.</p>
+  </div>
+</section>
+
+<div class="grid">
+  <div class="panel">
+    <h2>Session & Throttling</h2>
+    <div class="field">
+      <label>Session Duration (hours)</label>
+      <input type="number" [value]="settings().sessionHours" />
+      <small>Admin idle hone ke baad auto logout.</small>
+    </div>
+    <div class="field">
+      <label>Max Login Attempts</label>
+      <input type="number" [value]="settings().maxAttempts" />
+      <small>Iske baad account lock ho jayega.</small>
+    </div>
+    <div class="field">
+      <label>Lock Duration (minutes)</label>
+      <input type="number" [value]="settings().lockMinutes" />
+      <small>Lock kitni der tak rahega.</small>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>Security Policy</h2>
+    <div class="toggle">
+      <div>
+        <strong>Require Strong Password</strong>
+        <small>Minimum 8 chars, 1 number, 1 special char.</small>
+      </div>
+      <input type="checkbox" [checked]="settings().requireStrongPassword" />
+    </div>
+    <div class="toggle">
+      <div>
+        <strong>Email Alerts</strong>
+        <small>Failed logins & locks par email notification.</small>
+      </div>
+      <input type="checkbox" [checked]="settings().emailAlerts" />
+    </div>
+    <button class="btn-save" (click)="save()">
+      {{ saved() ? '✓ Saved' : 'Save Settings' }}
+    </button>
+  </div>
+</div>

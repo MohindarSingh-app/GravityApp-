@@ -1,0 +1,32 @@
+<section class="page-head">
+  <div>
+    <h1>Partner Directory</h1>
+    <p>All field partners — service, repairing, panel makers & suppliers.</p>
+  </div>
+</section>
+
+<div class="tabs">
+  <div class="tab" [class.active]="activeFilter === 'all'" (click)="setFilter('all')">All Partners <span
+      class="count">{{ count('all') }}</span></div>
+  <div class="tab" [class.active]="activeFilter === 'online'" (click)="setFilter('online')">Online Now <span
+      class="count">{{ count('online') }}</span></div>
+  <div class="tab" [class.active]="activeFilter === 'top'" (click)="setFilter('top')">Top Rated <span class="count">{{
+      count('top') }}</span></div>
+</div>
+
+<div class="card-list">
+  @for (p of filtered(); track p.id) {
+  <div class="op-card">
+    <div class="oc-icon">{{ p.name.charAt(0) }}</div>
+    <div class="oc-main">
+      <strong>{{ p.name }} @if (!p.verified) { <span class="badge b-y">unverified</span> }</strong>
+      <small>{{ p.city }} · ★ {{ p.rating }} · {{ p.jobsDone }} jobs · earned ₹{{ p.earnings.toLocaleString('en-IN')
+        }}</small>
+    </div>
+    <div class="oc-actions">
+      <span class="badge" [class]="typeClass(p.type)">{{ p.type }}</span>
+      @if (p.online) { <span class="live-badge">● online</span> }
+    </div>
+  </div>
+  }
+</div>

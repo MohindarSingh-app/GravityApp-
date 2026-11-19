@@ -1,0 +1,73 @@
+{
+  "name": "Service_admin_App",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "android": "npx react-native run-android",
+    "android:wifi": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/install-android-wifi.ps1",
+    "android:emu": "npm run emulator && npx react-native run-android",
+    "emulator": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/start-emulator.ps1",
+    "lint": "eslint .",
+    "test": "jest --runInBand src/flows",
+    "start": "npx react-native start --host 0.0.0.0",
+    "typecheck": "tsc --noEmit"
+  },
+  "jest": {
+    "preset": "@react-native/jest-preset"
+  },
+  "dependencies": {
+    "@bam.tech/react-native-image-resizer": "^3.0.11",
+    "@react-native-clipboard/clipboard": "^1.16.3",
+    "@react-native-community/geolocation": "^3.4.0",
+    "@react-native-documents/picker": "^12.0.3",
+    "@react-navigation/native": "^6.1.17",
+    "@react-navigation/native-stack": "^6.9.26",
+    "react": "19.2.3",
+    "react-native": "0.87.1",
+    "react-native-config": "^1.6.1",
+    "react-native-fs": "^2.20.0",
+    "react-native-image-crop-picker": "^0.52.0",
+    "react-native-keychain": "^10.0.0",
+    "react-native-safe-area-context": "~5.10.1",
+    "react-native-screens": "~4.30.0",
+    "react-native-vector-icons": "^10.3.0",
+    "react-native-webview": "14.0.1"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.25.2",
+    "@babel/preset-env": "^7.25.3",
+    "@babel/runtime": "^7.25.0",
+    "@react-native-community/cli": "20.2.0",
+    "@react-native-community/cli-platform-android": "20.2.0",
+    "@react-native-community/cli-platform-ios": "20.2.0",
+    "@react-native/babel-preset": "0.87.1",
+    "@react-native/eslint-config": "0.87.1",
+    "@react-native/jest-preset": "0.87.1",
+    "@react-native/metro-config": "0.87.1",
+    "@react-native/typescript-config": "0.87.1",
+    "@types/jest": "^30.0.0",
+    "@types/react": "~19.3.0",
+    "@types/react-test-renderer": "^19.1.0",
+    "eslint": "^8.19.0",
+    "jest": "~30.5.2",
+    "prettier": "2.8.8",
+    "react-test-renderer": "19.2.3",
+    "typescript": "^6.0.3"
+  },
+  "overrides": {
+    "metro": "0.87.1",
+    "metro-babel-transformer": "0.87.1",
+    "metro-cache": "0.87.1",
+    "metro-config": "0.87.1",
+    "metro-core": "0.87.1",
+    "metro-file-map": "0.87.1",
+    "metro-resolver": "0.87.1",
+    "metro-runtime": "0.87.1",
+    "metro-source-map": "0.87.1",
+    "metro-symbolicate": "0.87.1",
+    "metro-transform-worker": "0.87.1"
+  },
+  "engines": {
+    "node": ">= 22.11.0"
+  }
+}

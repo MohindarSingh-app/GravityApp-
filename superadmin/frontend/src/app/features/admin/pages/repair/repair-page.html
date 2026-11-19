@@ -1,0 +1,65 @@
+<section class="page-head">
+  <div>
+    <h1>Repair Center</h1>
+    <p>Workshop repair workflow — receive → diagnose → repair → QC → deliver.</p>
+  </div>
+  <span class="badge b-g">● {{ ops.activeRepairs().length }} active tickets</span>
+</section>
+
+<div class="stat-row" style="grid-template-columns:repeat(5,1fr)">
+  <div class="stat-card">
+    <div class="stat-num">{{ ops.repairs().filter(r => r.stage === 'received').length }}</div>
+    <div class="stat-lbl">Received</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-num">{{ ops.repairs().filter(r => r.stage === 'diagnosis').length }}</div>
+    <div class="stat-lbl">Diagnosis</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-num">{{ ops.repairs().filter(r => r.stage === 'repairing').length }}</div>
+    <div class="stat-lbl">Repairing</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-num">{{ ops.repairs().filter(r => r.stage === 'qc').length }}</div>
+    <div class="stat-lbl">QC</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-num">{{ ops.repairs().filter(r => r.stage === 'delivered').length }}</div>
+    <div class="stat-lbl">Delivered</div>
+  </div>
+</div>
+
+<div class="panel">
+  <div class="tbl-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Ticket</th>
+          <th>Device</th>
+          <th>Partner</th>
+          <th>Received</th>
+          <th>Est. Cost</th>
+          <th>Stage</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (r of ops.repairs(); track r.id) {
+        <tr>
+          <td><strong>{{ r.id }}</strong></td>
+          <td>{{ r.device }}</td>
+          <td>{{ r.partner }}</td>
+          <td>{{ r.inAt }}</td>
+          <td>₹{{ r.cost.toLocaleString('en-IN') }}</td>
+          <td><span class="status-pill" [class]="stagePillClass(r.stage)">{{ stageLabel(r.stage) }}</span></td>
+          <td>
+            @if (r.stage !== 'delivered') {
+            <button class="btn sm primary" (click)="ops.advanceRepair(r.id)">Advance →</button>
+            }
+          </td>
+        </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+</div>

@@ -1,0 +1,37 @@
+<section class="page-head">
+  <div>
+    <h1>Companies</h1>
+    <p>B2B customers — sites, users, AMC status & revenue.</p>
+  </div>
+</section>
+
+<div class="panel">
+  <div class="tbl-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Company</th>
+          <th>GST Number</th>
+          <th>Sites</th>
+          <th>Users</th>
+          <th>AMC</th>
+          <th>Total Jobs</th>
+          <th>Revenue</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (c of ops.companies; track c.gst) {
+        <tr>
+          <td><strong>{{ c.name }}</strong></td>
+          <td>{{ c.gst }}</td>
+          <td>{{ c.sites }}</td>
+          <td>{{ c.users }}</td>
+          <td><span class="status-pill" [class]="amcClass(c.amc)">{{ c.amc }}</span></td>
+          <td>{{ c.totalJobs }}</td>
+          <td>₹{{ c.revenue.toLocaleString('en-IN') }}</td>
+        </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+</div>

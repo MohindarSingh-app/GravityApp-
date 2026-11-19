@@ -1,0 +1,53 @@
+{
+  "cli": {
+    "version": ">= 13.0.0",
+    "appVersionSource": "local"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "ios": {
+        "simulator": true,
+        "bundleIdentifier": "com.gravityhub.serviceadmin"
+      },
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_URL": "http://YOUR-PC-LAN-IP:5000"
+      }
+    },
+    "preview": {
+      "distribution": "internal",
+      "ios": {
+        "simulator": false,
+        "bundleIdentifier": "com.gravityhub.serviceadmin"
+      },
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://api-preview.example.com"
+      }
+    },
+    "production": {
+      "ios": {
+        "bundleIdentifier": "com.gravityhub.serviceadmin"
+      },
+      "android": {},
+      "env": {
+        "EXPO_PUBLIC_API_URL": "https://api.example.com"
+      }
+    }
+  },
+  "submit": {
+    "production": {
+      "ios": {
+        "appleId": "REPLACE-WITH-APPLE-ID",
+        "ascAppId": "REPLACE-WITH-ASC-APP-ID",
+        "appleTeamId": "REPLACE-WITH-TEAM-ID"
+      }
+    }
+  }
+}

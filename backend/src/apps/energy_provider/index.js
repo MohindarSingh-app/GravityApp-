@@ -1,0 +1,125 @@
+require('dotenv').config();
+const express = require('express');
+const cors = require('cors');
+const config = require('../../config/energy_provider/env');
+const { notFound, errorHandler } = require('../../middleware/energy_provider/errorHandler');
+const { db } = require('../../db/energy_provider/index');
+
+const app = express();
+
+const validateProductionConfiguration = () => {
+  if (config.NODE_ENV !== 'production') return;
+
+  const problems = [];
+  if (!config.JWT_SECRET || config.JWT_SECRET.length < 32) {
+    problems.push('JWT_SECRET must contain at least 32 characters');
+  }
+  if (config.CORS_ORIGIN === '*') {
+    problems.push('CORS_ORIGIN must be restricted to the production app origins');
+  }
+  if (!config.DATABASE_URL && !config.DB_PASSWORD) {
+    problems.push('A production database password is required');
+  }
+  if (config.DATABASE_URL && !/^postgres(?:ql)?:\/\//i.test(config.DATABASE_URL)) {
+    problems.push('Production DATABASE_URL must use PostgreSQL');
+  }
+  if (!config.DB_SSL) {
+    problems.push('DB_SSL must be enabled for production database connections');
+  }
+  if (!config.SMS_PROVIDER_URL || !config.SMS_PROVIDER_TOKEN) {
+    problems.push('SMS_PROVIDER_URL and SMS_PROVIDER_TOKEN are required for OTP delivery');
+  }
+
+  if (problems.length) {
+    throw new Error(`Production readiness checks failed: ${problems.join('; ')}`);
+  }
+};
+
+// CORS configuration - allows mobile emulator/device access
+app.use(cors({ origin: config.CORS_ORIGIN, credentials: true }));
+
+// Body parsing
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// Health check
+app.get('/api/health', (_req, res) => {
+  res.json({
+    status: 'ok',
+    service: 'energy_hub_backend',
+    app: 'energy_provider',
+    time: new Date().toISOString(),
+    environment: process.env.NODE_ENV || 'development',
+  });
+});
+
+// API v1 routes
+app.use('/api/v1/auth', require('../../routes/energy_provider/auth'));
+app.use('/api/v1/registration', require('../../routes/energy_provider/registration'));
+app.use('/api/v1/dashboard', require('../../routes/energy_provider/dashboard'));
+app.use('/api/v1/jobs', require('../../routes/energy_provider/jobs'));
+app.use('/api/v1/delivery', require('../../routes/energy_provider/delivery'));
+app.use('/api/v1/marketplace', require('../../routes/energy_provider/marketplace'));
+app.use('/api/v1/partner', require('../../routes/energy_provider/partner'));
+app.use('/api/v1/admin', require('../../routes/energy_provider/admin'));
+
+// 404 handler
+app.use(notFound);
+
+// Global error handler
+app.use(errorHandler);
+
+/**
+ * Start the API server.
+ *
+ * The database schema is created on boot so the API works on a fresh machine.
+ * The returned promise resolves with the listening server, which lets the
+ * test harness shut it down again.
+ */
+const prepareDatabase = async () => {
+  validateProductionConfiguration();
+  await db.init();
+  console.log(`Database ready (${db.describe()})`);
+};
+
+const seedIfNeeded = async () => {
+  if (!config.SEED_DEMO_DATA) return;
+  await require('../../scripts/energy_provider/seedDemoPartner').seedDemoPartner();
+};
+
+const start = async () => {
+  try {
+    await prepareDatabase();
+    await seedIfNeeded();
+  } catch (err) {
+    console.error('Database initialisation failed:', err.message);
+    throw err;
+  }
+
+  const server = await new Promise((resolve) => {
+    const listener = app.listen(config.PORT, () => {
+      console.log(`Energy Hub Backend running on http://localhost:${config.PORT}`);
+      console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+      console.log(`JWT Secret configured: ${!!config.JWT_SECRET}`);
+      console.log(`CORS Origin: ${config.CORS_ORIGIN}`);
+      resolve(listener);
+    });
+  });
+
+  process.on('unhandledRejection', (reason, promise) => {
+    console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+  });
+
+  return server;
+};
+
+const serverPromise = process.env.UNIFIED_SERVER ? null : start();
+
+module.exports = {
+  app,
+  server: serverPromise,
+  start,
+  prepareDatabase,
+  seedIfNeeded,
+  validateProductionConfiguration,
+};

@@ -1,0 +1,207 @@
+/* ===== Global styles ===== */
+@use 'styles/adminuiux-theme';
+@use 'styles/operations';
+@use 'styles/admin-icons';
+
+:root {
+  color-scheme: light;
+  --theme-1: #2457d6;
+  --theme-1-hover: #1d48b5;
+  --theme-1-active: #173b99;
+  --theme-1-rgb: 36, 87, 214;
+  --theme-1-text: #fff;
+  --theme-2: #4676e8;
+  --theme-2-rgb: 70, 118, 232;
+  --theme-2-text: #fff;
+  --theme-accent-1: #c2413b;
+  --theme-accent-1-hover: #a9342f;
+  --theme-accent-1-active: #8d2925;
+  --theme-accent-1-rgb: 194, 65, 59;
+  --theme-accent-1-text: #fff;
+  --theme-accent-2: #d97706;
+  --theme-accent-2-rgb: 217, 119, 6;
+  --theme-accent-2-text: #fff;
+  --bg-1: #f5f7fb;
+  --bg-2: #edf1f7;
+  --surface: #fff;
+  --surface-2: #f8fafc;
+  --border: #e2e8f0;
+  --border-strong: #cbd5e1;
+  --text: #172033;
+  --t: #172033;
+  --t-2: #58647a;
+  --t-3: #7d899d;
+  --shadow: 0 1px 3px rgba(15, 23, 42, 0.06), 0 8px 24px rgba(15, 23, 42, 0.04);
+  --radius: 12px;
+  --radius-sm: 10px;
+  --sidebar-width: 264px;
+  --content-font: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --title-font: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --primary: var(--theme-1);
+  --primary-2: var(--theme-1);
+  --accent: #15803d;
+  --warn: #b45309;
+  --danger: var(--theme-accent-1);
+  --glow: 0 0 0 3px rgba(var(--theme-1-rgb), 0.16);
+  --grad-brand: var(--theme-1);
+  --grad-accent: var(--theme-1);
+}
+
+:root[data-mode='dark'] {
+  color-scheme: dark;
+  --bg-1: #111827;
+  --bg-2: #0b1220;
+  --surface: #182235;
+  --surface-2: #202c40;
+  --border: #2a3850;
+  --border-strong: #3a4b64;
+  --text: #e8edf5;
+  --t: #e8edf5;
+  --t-2: #a7b3c5;
+  --t-3: #7e8ba0;
+  --shadow: 0 1px 3px rgba(0, 0, 0, 0.2), 0 8px 24px rgba(0, 0, 0, 0.14);
+  --theme-1: #7195ff;
+  --theme-1-hover: #8ba8ff;
+  --theme-1-active: #a5baff;
+  --theme-1-rgb: 113, 149, 255;
+  --theme-1-text: #10182a;
+  --theme-2: #91acff;
+  --theme-2-rgb: 145, 172, 255;
+  --primary: var(--theme-1);
+  --primary-2: var(--theme-1);
+  --glow: 0 0 0 3px rgba(var(--theme-1-rgb), 0.22);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font-family: var(--content-font);
+  background: var(--bg-1);
+  color: var(--t);
+  -webkit-font-smoothing: antialiased;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: var(--title-font);
+  font-weight: 600;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+a {
+  color: var(--theme-1);
+}
+
+.text-gradient {
+  color: var(--theme-1);
+  background: none;
+  -webkit-text-fill-color: currentColor;
+}
+
+.panel,
+.stat-card,
+.link-card,
+.op-card,
+.stat-row .stat-card {
+  border-color: var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 8px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+/* Shared inputs (auth pages) */
+.form-field {
+  position: relative;
+  margin-bottom: 18px;
+
+  .field-icon {
+    position: absolute;
+    left: 16px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--t-3);
+    pointer-events: none;
+  }
+
+  input {
+    width: 100%;
+    height: 52px;
+    padding: 0 16px 0 48px;
+    font-size: 15px;
+    color: var(--t);
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    outline: none;
+    transition: border-color 0.25s, background 0.25s, box-shadow 0.25s;
+
+    &::placeholder {
+      color: var(--t-3);
+    }
+
+    &:focus {
+      border-color: var(--theme-1);
+      background: var(--surface);
+      box-shadow: 0 0 0 4px rgba(var(--theme-1-rgb), 0.18);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      scroll-behavior: auto !important;
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+
+  &.invalid input {
+    border-color: var(--theme-accent-1);
+  }
+
+  .field-error {
+    color: var(--theme-accent-1);
+    font-size: 12.5px;
+    margin-top: 6px;
+    margin-left: 4px;
+  }
+}

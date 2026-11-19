@@ -1,0 +1,37 @@
+{
+  "name": "energy_hub_backend",
+  "version": "1.0.0",
+  "description": "One API and one database for energy_provider, energy_service, energy_website and superadmin",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "nodemon src/server.js",
+    "migrate": "node database/energy_service/migrate.js",
+    "test:provider": "node src/scripts/energy_provider/smoke.js && node src/scripts/energy_provider/http.smoke.js",
+    "test:service": "node --test --test-concurrency=1 tests/energy_service/unit/core.test.js tests/energy_service/unit/validators.test.js tests/energy_service/unit/rateLimit.test.js tests/energy_service/unit/customerStatus.test.js tests/energy_service/unit/serviceFlow.test.js tests/energy_service/unit/env.test.js",
+    "test:superadmin": "tsx --test src/apps/superadmin/console-api/domain/permissions.test.ts src/apps/superadmin/console-api/infrastructure/json-store.test.ts src/apps/superadmin/console-api/http/api.test.ts tests/superadmin-console.integration.test.js",
+    "test": "npm run test:superadmin && npm run test:provider && npm run test:service"
+  },
+  "license": "ISC",
+  "dependencies": {
+    "argon2": "^0.45.1",
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.2",
+    "express-rate-limit": "^7.5.0",
+    "express5": "npm:express@^5.3.0",
+    "fs-extra": "^11.2.0",
+    "helmet": "^8.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "mysql2": "^3.24.6",
+    "nodemailer": "^6.10.1",
+    "pg": "^8.23.1",
+    "tsx": "^4.23.15",
+    "uuid": "^9.0.1",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.4"
+  }
+}

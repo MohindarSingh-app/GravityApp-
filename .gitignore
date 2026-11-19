@@ -1,0 +1,60 @@
+# Node dependencies
+node_modules/
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Build files
+dist/
+build/
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+
+# IDE files
+.idea/
+.vscode/
+
+# Logs
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# Android signing keys
+*.keystore
+*.jks
+
+# Temporary files
+*.tmp
+
+# Private user uploads
+backend/private-uploads/
+backend/uploads/
+
+# Local bundle configuration
+**/.bundle/
+
+
+# Android debug signing keys
+**/debug.keystore
+*.keystore
+*.jks
+
+# Backup and temporary files
+*.bak
+*.backup
+*.tmp
+
+**/debug.keystore
+
+/service_admin_app/android/app/debug.keystore
+
+/service_admin_app/android/app/debug.keystore

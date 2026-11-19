@@ -1,0 +1,61 @@
+<section class="page-head">
+  <div>
+    <h1>Inventory</h1>
+    <p>Spares & components stock across suppliers.</p>
+  </div>
+</section>
+
+<div class="stat-row" style="grid-template-columns:repeat(4,1fr)">
+  <div class="stat-card">
+    <div class="stat-num">{{ ops.inventory.length }}</div>
+    <div class="stat-lbl">Total SKUs</div>
+  </div>
+  <div class="stat-card" style="border-color:#fca5a5">
+    <div class="stat-num" style="color:var(--theme-accent-1)">{{ ops.lowStockItems().length }}</div>
+    <div class="stat-lbl">Low Stock</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-num">{{ ops.inventory.reduce((n, i) => n + i.stock, 0) }}</div>
+    <div class="stat-lbl">Units In Stock</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-num">2</div>
+    <div class="stat-lbl">Suppliers</div>
+  </div>
+</div>
+
+<div class="panel">
+  <div class="panel-head">
+    <div class="panel-title">Stock Register</div>
+  </div>
+  <div class="tbl-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>SKU</th>
+          <th>Item</th>
+          <th>Category</th>
+          <th>Stock</th>
+          <th>Low At</th>
+          <th>Supplier</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (item of ops.inventory; track item.sku) {
+        <tr>
+          <td><strong>{{ item.sku }}</strong></td>
+          <td>{{ item.name }}</td>
+          <td>{{ item.category }}</td>
+          <td>{{ item.stock }}</td>
+          <td>{{ item.low }}</td>
+          <td>{{ item.supplier }}</td>
+          <td><span class="status-pill" [class]="stockClass(item)">{{ item.stock <= item.low ? 'Low stock' : 'OK'
+                }}</span>
+          </td>
+        </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+</div>

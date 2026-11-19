@@ -1,0 +1,377 @@
+.panel {
+  margin-bottom: 16px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+}
+
+.tabs {
+  display: flex;
+  gap: 4px;
+  margin: 0 0 12px;
+  border-bottom: 1px solid var(--border);
+}
+
+.tab {
+  padding: 8px 11px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--t-2);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+
+  &.active {
+    border-bottom-color: var(--primary);
+    color: var(--primary);
+  }
+}
+
+.section-title,
+.table-toolbar,
+.permissions-heading,
+.save-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.section-title,
+.table-toolbar {
+  margin-bottom: 16px;
+}
+
+h2 {
+  margin: 0;
+  color: var(--t);
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.section-title p,
+.table-toolbar p,
+.permissions-heading p {
+  margin: 5px 0 0;
+  color: var(--t-3);
+  font-size: 13px;
+}
+
+.create-form {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  align-items: end;
+  gap: 14px;
+
+  label,
+  .role-picker {
+    display: grid;
+    gap: 6px;
+    color: var(--t-2);
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  input,
+  select {
+    width: 100%;
+    min-width: 0;
+    height: 36px;
+    padding: 0 10px;
+    border: 1px solid var(--border-strong);
+    border-radius: 5px;
+    background: var(--surface-2);
+    color: var(--t);
+    font: inherit;
+  }
+}
+
+.btn-primary {
+  min-height: 36px;
+  padding: 0 13px;
+  border: 1px solid var(--primary);
+  border-radius: 5px;
+  background: var(--primary);
+  color: white;
+  font: inherit;
+  font-weight: 650;
+  cursor: pointer;
+
+  &:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+}
+
+.search {
+  width: min(100%, 300px);
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--surface-2);
+  color: var(--t);
+  font: inherit;
+}
+
+.table-scroll,
+.permission-table-scroll {
+  overflow-x: auto;
+}
+
+.table,
+.permission-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+
+  th {
+    color: var(--t-3);
+    font-size: 11px;
+    font-weight: 700;
+    text-align: left;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  th,
+  td {
+    padding: 9px 8px;
+    border-bottom: 1px solid var(--border);
+  }
+}
+
+.inline-select {
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--surface-2);
+  color: var(--t);
+}
+
+.ta-right {
+  text-align: right !important;
+}
+
+.status {
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 650;
+
+  &.off {
+    color: var(--danger);
+  }
+}
+
+.btn-sm {
+  padding: 6px 9px;
+  border: 1px solid var(--border-strong);
+  border-radius: 5px;
+  background: var(--surface-2);
+  color: var(--t);
+  font: inherit;
+  cursor: pointer;
+
+  &:hover:not(:disabled) {
+    border-color: var(--primary);
+    color: var(--primary-2);
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
+.row-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.text-button {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--primary-2);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 650;
+  cursor: pointer;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+.muted {
+  color: var(--t-3);
+  font-size: 12px;
+}
+
+.permissions-heading {
+  margin-bottom: 14px;
+
+  .role-picker {
+    display: grid;
+    gap: 5px;
+    color: var(--t-2);
+    font-size: 12px;
+    font-weight: 600;
+  }
+
+  select {
+    min-width: 150px;
+    height: 36px;
+    padding: 0 8px;
+    border: 1px solid var(--border-strong);
+    border-radius: 5px;
+    background: var(--surface-2);
+    color: var(--t);
+  }
+}
+
+.access-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 0 0 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--surface-2);
+  font-size: 12px;
+
+  strong {
+    color: var(--t);
+    overflow-wrap: anywhere;
+  }
+
+  span {
+    color: var(--t-2);
+    text-align: right;
+  }
+}
+
+.permission-table {
+  min-width: 620px;
+
+  th,
+  td {
+    padding: 7px 9px;
+  }
+
+  .action-col {
+    width: 84px;
+    text-align: center;
+    text-transform: capitalize;
+
+    input {
+      display: block;
+      margin: 5px auto 0;
+    }
+  }
+
+  input {
+    width: 15px;
+    height: 15px;
+    accent-color: var(--primary);
+    cursor: pointer;
+    vertical-align: middle;
+
+    &:disabled {
+      cursor: not-allowed;
+    }
+  }
+
+  .page-col {
+    min-width: 175px;
+
+    span {
+      display: block;
+      margin-top: 2px;
+      color: var(--t-3);
+      font-size: 10px;
+      font-weight: 500;
+      letter-spacing: 0;
+      text-transform: none;
+    }
+  }
+
+  .page-cell {
+    white-space: nowrap;
+
+    input {
+      margin: 0 8px 0 0;
+    }
+  }
+}
+
+.save-row {
+  justify-content: flex-end;
+  margin-top: 12px;
+}
+
+.locked-note,
+.empty {
+  padding: 11px;
+  border-radius: 5px;
+  background: var(--surface-2);
+  color: var(--t-2);
+  font-size: 13px;
+}
+
+.feedback {
+  margin: 0 0 14px;
+  padding: 9px 11px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  font-size: 13px;
+
+  &.error {
+    border-color: color-mix(in srgb, var(--danger) 35%, transparent);
+    color: var(--danger);
+  }
+
+  &.success {
+    border-color: color-mix(in srgb, var(--accent) 35%, transparent);
+    color: var(--accent);
+  }
+}
+
+@media (max-width: 900px) {
+  .create-form {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 560px) {
+  .panel {
+    padding: 12px;
+  }
+
+  .create-form {
+    grid-template-columns: 1fr;
+  }
+
+  .table-toolbar,
+  .permissions-heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .access-summary {
+    align-items: flex-start;
+    flex-direction: column;
+
+    span {
+      text-align: left;
+    }
+  }
+
+  .search {
+    width: 100%;
+  }
+}

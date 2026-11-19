@@ -1,0 +1,83 @@
+<section class="page-head">
+  <div>
+    <h1>Jobs</h1>
+    <p>All service jobs — assign partners, track SLA, close jobs.</p>
+  </div>
+</section>
+
+<div class="tabs">
+  <div class="tab" [class.active]="activeFilter === 'all'" (click)="setFilter('all')">All <span class="count">{{
+      count('all') }}</span></div>
+  <div class="tab" [class.active]="activeFilter === 'unassigned'" (click)="setFilter('unassigned')">Unassigned <span
+      class="count">{{ count('unassigned') }}</span></div>
+  <div class="tab" [class.active]="activeFilter === 'sla-risk'" (click)="setFilter('sla-risk')">SLA Risk <span
+      class="count">{{ count('sla-risk') }}</span></div>
+  <div class="tab" [class.active]="activeFilter === 'progress'" (click)="setFilter('progress')">In Progress <span
+      class="count">{{ count('progress') }}</span></div>
+  <div class="tab" [class.active]="activeFilter === 'completed'" (click)="setFilter('completed')">Completed <span
+      class="count">{{ count('completed') }}</span></div>
+</div>
+
+<div class="panel">
+  <div class="tbl-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Job ID</th>
+          <th>Company / Site</th>
+          <th>Service</th>
+          <th>Partner</th>
+          <th>SLA</th>
+          <th>Amount</th>
+          <th>Status</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (job of filtered(); track job.id) {
+        <tr>
+          <td><strong>{{ job.id }}</strong></td>
+          <td>{{ job.company }}<small>{{ job.site }}</small></td>
+          <td>{{ job.service }}</td>
+          <td>
+            @if (job.partner) {
+            {{ job.partner }}
+            } @else {
+            <select (change)="assign(job.id, $event)">
+              <option value="">Assign…</option>
+              @for (p of partnerOptions(); track p.id) {
+              <option [value]="p.name">{{ p.name }}</option>
+              }
+            </select>
+            }
+          </td>
+          <td>
+            @if (job.slaMinsLeft !== null) {
+            <span [class]="job.slaMinsLeft <= 10 ? 'status-pill bad' : 'status-pill info'">{{ job.slaMinsLeft }} min
+              left</span>
+            } @else {
+            —
+            }
+          </td>
+          <td>₹{{ job.amount.toLocaleString('en-IN') }}</td>
+          <td>
+            <span class="status-pill"
+              [class]="job.status === 'completed' ? 'ok' : job.status === 'sla-risk' ? 'bad' : job.status === 'unassigned' ? 'warn' : 'info'">
+              {{ job.status === 'sla-risk' ? 'SLA risk' : job.status === 'progress' ? 'In progress' : job.status }}
+            </span>
+          </td>
+          <td>
+            @if (job.status !== 'completed') {
+            <button class="btn sm primary" (click)="complete(job.id)">Complete</button>
+            }
+          </td>
+        </tr>
+        } @empty {
+        <tr>
+          <td colspan="8" style="text-align:center;color:var(--t-3);padding:32px">No jobs in this filter.</td>
+        </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+</div>
