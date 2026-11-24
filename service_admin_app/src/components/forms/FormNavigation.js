@@ -1,5 +1,5 @@
 import {
-  Animated, findNodeHandle, Pressable, StyleSheet, Text, View,
+  Animated, Pressable, StyleSheet, Text, View,
 } from 'react-native';
 import {
   createContext, useCallback, useContext, useEffect, useMemo, useRef, useState,
@@ -91,8 +91,7 @@ export function FormNavigationProvider({
 
   const measurePositions = useCallback((onComplete) => {
     const scroll = scrollRef && scrollRef.current;
-    const parentHandle = scroll ? findNodeHandle(scroll) : null;
-    if (parentHandle == null) {
+    if (!scroll) {
       if (onComplete) onComplete();
       return;
     }
@@ -113,7 +112,7 @@ export function FormNavigationProvider({
     };
     measurable.forEach(([id, field]) => {
       field.fieldRef.current.measureLayout(
-        parentHandle,
+        scroll,
         (_x, y) => {
           const current = fields.current.get(id);
           const position = y + (scrollOffsetRef ? scrollOffsetRef.current : 0);
@@ -159,11 +158,10 @@ export function FormNavigationProvider({
   const scrollToField = useCallback((id) => {
     const target = fields.current.get(id)?.fieldRef?.current;
     const scroll = scrollRef && scrollRef.current;
-    const parentHandle = scroll ? findNodeHandle(scroll) : null;
-    if (!target || parentHandle == null || typeof target.measureLayout !== 'function') return;
+    if (!target || !scroll || typeof target.measureLayout !== 'function') return;
 
     target.measureLayout(
-      parentHandle,
+      scroll,
       (_x, y) => {
         if (scroll && typeof scroll.scrollTo === 'function') {
           const offset = scrollOffsetRef ? scrollOffsetRef.current : 0;

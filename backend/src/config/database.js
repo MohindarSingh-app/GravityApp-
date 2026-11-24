@@ -1,6 +1,7 @@
 const { Client } = require('pg');
 
-const TARGET_DB = 'energy_hub';
+const TARGET_DB = (process.env.DB_NAME || 'energy_hub').trim() || 'energy_hub';
+const TARGET_DB_IDENTIFIER = quoteIdent(TARGET_DB);
 const SERVICE_SOURCE = 'ZypliserviceApp';
 const PROVIDER_SOURCE = 'Energy_hub_0.66E';
 
@@ -36,7 +37,7 @@ async function ensureUnifiedDatabase() {
       await admin.query(`CREATE DATABASE ${TARGET_DB} TEMPLATE "${SERVICE_SOURCE}"`);
       console.log(`Created ${TARGET_DB} from ${SERVICE_SOURCE}`);
     } else {
-      await admin.query(`CREATE DATABASE ${TARGET_DB}`);
+      await admin.query(`CREATE DATABASE ${TARGET_DB_IDENTIFIER}`);
       console.log(`Created empty database ${TARGET_DB}`);
     }
   }

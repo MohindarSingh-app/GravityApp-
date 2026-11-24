@@ -58,7 +58,7 @@ const JOB_TABS = [
 
 function filterJobs(jobs, tab) {
   if (tab === 'active') {
-    return jobs.filter((job) => ['open', 'pending', 'in_progress', 'on_the_way'].includes(job.status));
+    return jobs.filter((job) => ['open', 'pending', 'accepted', 'in_progress', 'on_the_way'].includes(job.status));
   }
   if (tab === 'done') {
     return jobs.filter((job) => job.status === 'completed' || job.status === 'done');
@@ -121,6 +121,7 @@ export function DashboardScreen() {
   };
 
   const operations = (snapshot && snapshot.operations) || null;
+  const access = (snapshot && snapshot.access) || {};
   const metrics = operationMetrics(operations);
   const certMetric = metrics.find((metric) => metric.id === 'certs');
   const found = boardSearch(operations, query);
@@ -425,7 +426,7 @@ export function DashboardScreen() {
               </View>
             </Pressable>
 
-            <Pressable
+            {access.readAmc ? <Pressable
               accessibilityRole="button"
               accessibilityLabel="Request AMC coverage"
               onPress={() => navigation.navigate('Amc', {
@@ -451,9 +452,9 @@ export function DashboardScreen() {
                 </View>
               </View>
               <Glyph name="chevron" color={colors.textOnPrimary} size={18} />
-            </Pressable>
+            </Pressable> : null}
 
-            <Pressable
+            {access.createRepairs ? <Pressable
               accessibilityRole="button"
               onPress={() => navigation.navigate('RepairCenter', {
                 screen: 'RepairDevice',
@@ -477,7 +478,7 @@ export function DashboardScreen() {
                 <Text style={[type.small, { color: colors.warning }]}>✓ 3-7 day turnaround   ✓ GST invoice</Text>
               </View>
               <Glyph name="chevron" color={colors.warning} size={17} />
-            </Pressable>
+            </Pressable> : null}
 
             <View style={styles.actionCardRow}>
               <MiniCard
@@ -488,15 +489,15 @@ export function DashboardScreen() {
                 subtitle="New installation"
                 onPress={() => navigation.navigate('Projects', { screen: 'ProjectCategory' })}
               />
-              <MiniCard
+              {access.readMarketplace ? <MiniCard
                 style={styles.actionCell}
                 glyph="box"
                 tone="market"
                 title="Marketplace"
                 subtitle="Buy products"
                 onPress={() => navigation.navigate('Marketplace', { screen: 'MarketplaceHome' })}
-              />
-              <MiniCard
+              /> : null}
+              {access.readCerts ? <MiniCard
                 style={styles.actionCell}
                 glyph="document"
                 tone="cert"
@@ -505,7 +506,7 @@ export function DashboardScreen() {
                   ? Number(certMetric.value) > 0 ? `${certMetric.value} expiring soon` : 'No expiring soon'
                   : 'Compliance records'}
                 onPress={() => navigation.navigate('Compliance')}
-              />
+              /> : null}
             </View>
 
             <Pressable

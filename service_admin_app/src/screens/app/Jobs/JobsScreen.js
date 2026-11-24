@@ -26,7 +26,7 @@ const TABS = [
 
 function filterRows(rows, tab) {
   if (tab === 'active') {
-    return rows.filter((job) => ['open', 'pending', 'in_progress', 'on_the_way'].includes(job.status));
+    return rows.filter((job) => ['open', 'pending', 'accepted', 'in_progress', 'on_the_way'].includes(job.status));
   }
   if (tab === 'done') {
     return rows.filter((job) => job.status === 'completed' || job.status === 'done');

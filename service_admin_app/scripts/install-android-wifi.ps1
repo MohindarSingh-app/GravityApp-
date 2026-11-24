@@ -37,6 +37,11 @@ try {
   if ($LASTEXITCODE -ne 0) {
     throw "Failed to forward the Metro development server to the Wi-Fi device (exit code $LASTEXITCODE)."
   }
+
+  & $adbCommand.Source -s $serial reverse tcp:8082 tcp:8081
+  if ($LASTEXITCODE -ne 0) {
+    throw "Failed to forward the saved Metro port to the development server (exit code $LASTEXITCODE)."
+  }
 } finally {
   Pop-Location
 }

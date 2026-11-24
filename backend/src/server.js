@@ -11,7 +11,7 @@ const express = require('express');
 const cors = require('cors');
 require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
 
-const { ensureUnifiedDatabase, copyProviderData } = require('./config/database');
+const { ensureUnifiedDatabase, copyProviderData, TARGET_DB } = require('./config/database');
 const { createSuperadminConsole } = require('./apps/superadmin/console');
 
 function safeStartMessage(err) {
@@ -104,7 +104,7 @@ async function start() {
       success: true,
       message: 'Energy Hub API is running',
       data: {
-        database: 'energy_hub',
+        database: TARGET_DB,
         modules: {
           energy_provider: '/api/v1',
           energy_service: '/api',
@@ -121,7 +121,7 @@ async function start() {
     res.json({
       status: 'ok',
       service: 'energy_hub_backend',
-      database: 'energy_hub',
+      database: TARGET_DB,
       modules: ['energy_provider', 'energy_service', 'energy_website', 'superadmin', 'superadmin_console'],
       time: new Date().toISOString(),
     });
@@ -176,7 +176,7 @@ async function start() {
   await new Promise((resolve, reject) => {
     const listener = app.listen(port, '0.0.0.0', () => {
       console.log(`Energy Hub API running on http://localhost:${port}`);
-      console.log('One database: energy_hub');
+      console.log(`One database: ${TARGET_DB}`);
       console.log('  energy_provider  /api/v1');
       console.log('  energy_service   /api');
       console.log('  energy_website   /api/website');

@@ -9,7 +9,7 @@
     "emulator": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/start-emulator.ps1",
     "lint": "eslint .",
     "test": "jest --runInBand src/flows",
-    "start": "npx react-native start --host 0.0.0.0",
+    "start": "npx react-native start --host 127.0.0.1 --port 8081",
     "typecheck": "tsc --noEmit"
   },
   "jest": {

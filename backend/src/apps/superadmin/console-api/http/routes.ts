@@ -13,6 +13,7 @@ import { AccessControlService, InputError, NotFoundError } from '../services/acc
 import { AuthenticationService } from '../services/authentication.js';
 import { SessionManager } from '../services/sessions.js';
 import { readSessionCookie, requireAuth, requirePermission, requireSuperadmin } from './middleware.js';
+import { Pool } from 'pg';
 
 interface ApiDependencies {
   store: JsonStore;
@@ -66,6 +67,174 @@ export function createApiRouter(dependencies: ApiDependencies): Router {
   const { store, access, authentication, sessions, secureCookies, localDemoCredentials } = dependencies;
   const router = Router();
   const authenticate = requireAuth(store, sessions);
+  const operationsPool = new Pool({
+    connectionString: process.env.DATABASE_URL,
+    max: 5,
+  });
+
+  router.get(
+    '/operations/overview',
+    authenticate,
+    requireSuperadmin,
+    async (_request, response): Promise<void> => {
+      const client = await operationsPool.connect();
+      try {
+        const [jobs, amcs, repairs, projects, inventory, companies] = await Promise.all([
+          client.query(`SELECT id, code, title, status, priority, location_label,
+                               engineer_name, estimate_amount, sla_due_at, created_at
+                        FROM field_jobs ORDER BY created_at DESC LIMIT 100`),
+          client.query(`SELECT id, contract_number, contract_type, status,
+                               end_date, coverage, created_at
+                        FROM amc_contracts ORDER BY created_at DESC LIMIT 100`),
+          client.query(`SELECT id, ticket_number, device_id, status, priority,
+                               issue_description, created_at
+                        FROM repair_tickets ORDER BY created_at DESC LIMIT 100`),
+          client.query(`SELECT id, request_number, title, status,
+                               preferred_timeline, budget_amount, created_at
+                        FROM project_requests ORDER BY created_at DESC LIMIT 100`),
+          client.query(`SELECT id, sku, name, brand, stock_quantity, active
+                        FROM products ORDER BY name LIMIT 100`),
+          client.query(`SELECT id, company_name, gst_number, industry, city, status,
+                               created_at
+                        FROM companies ORDER BY created_at DESC LIMIT 100`),
+        ]);
+        response.json({
+          jobs: jobs.rows,
+          amcs: amcs.rows,
+          repairs: repairs.rows,
+          projects: projects.rows,
+          inventory: inventory.rows,
+          companies: companies.rows,
+        });
+      } finally {
+        client.release();
+      }
+    },
+  );
+
+  router.patch(
+    '/operations/jobs/:id/status',
+    authenticate,
+    requireSuperadmin,
+    async (request, response): Promise<void> => {
+      const status = (request.body as Record<string, unknown> | undefined)?.status;
+      if (!['accepted', 'on_the_way', 'in_progress', 'completed', 'cancelled'].includes(String(status))) {
+        response.status(400).json({ message: 'A valid job status is required.' });
+        return;
+      }
+      const engineerName = (request.body as Record<string, unknown> | undefined)?.engineerName;
+      const result = await operationsPool.query(
+        `UPDATE field_jobs
+         SET status = $2,
+             engineer_name = CASE WHEN $3::text IS NULL THEN engineer_name ELSE $3::text END,
+             updated_at = NOW()
+         WHERE id::text = $1 OR code = $1
+         RETURNING id, code, title, status, engineer_name`,
+        [request.params['id'], status, typeof engineerName === 'string' ? engineerName : null],
+      );
+      if (!result.rowCount) {
+        response.status(404).json({ message: 'Job not found.' });
+        return;
+      }
+      response.json({ job: result.rows[0] });
+    },
+  );
+
+  router.patch(
+    '/operations/amc/:id/status',
+    authenticate,
+    requireSuperadmin,
+    async (request, response): Promise<void> => {
+      const status = (request.body as Record<string, unknown> | undefined)?.status;
+      if (!['active', 'suspended', 'expired', 'cancelled'].includes(String(status))) {
+        response.status(400).json({ message: 'A valid AMC status is required.' });
+        return;
+      }
+      const result = await operationsPool.query(
+        `UPDATE amc_contracts SET status = $2, updated_at = NOW()
+         WHERE id = $1
+         RETURNING id, contract_number, status`,
+        [request.params['id'], status],
+      );
+      if (!result.rowCount) {
+        response.status(404).json({ message: 'AMC contract not found.' });
+        return;
+      }
+      response.json({ amc: result.rows[0] });
+    },
+  );
+
+  router.patch(
+    '/operations/repairs/:id/status',
+    authenticate,
+    requireSuperadmin,
+    async (request, response): Promise<void> => {
+      const status = (request.body as Record<string, unknown> | undefined)?.status;
+      if (!['received', 'diagnosis', 'estimate_required', 'approved', 'repair_in_progress', 'ready', 'returned', 'completed', 'cancelled'].includes(String(status))) {
+        response.status(400).json({ message: 'A valid repair status is required.' });
+        return;
+      }
+      const result = await operationsPool.query(
+        `UPDATE repair_tickets SET status = $2, updated_at = NOW()
+         WHERE id = $1
+         RETURNING id, ticket_number, status`,
+        [request.params['id'], status],
+      );
+      if (!result.rowCount) {
+        response.status(404).json({ message: 'Repair ticket not found.' });
+        return;
+      }
+      response.json({ repair: result.rows[0] });
+    },
+  );
+
+  router.patch(
+    '/operations/projects/:id/status',
+    authenticate,
+    requireSuperadmin,
+    async (request, response): Promise<void> => {
+      const status = (request.body as Record<string, unknown> | undefined)?.status;
+      if (!['under_review', 'clarification_required', 'approved', 'in_progress', 'completed', 'cancelled'].includes(String(status))) {
+        response.status(400).json({ message: 'A valid project status is required.' });
+        return;
+      }
+      const result = await operationsPool.query(
+        `UPDATE project_requests SET status = $2, updated_at = NOW()
+         WHERE id = $1
+         RETURNING id, request_number, title, status`,
+        [request.params['id'], status],
+      );
+      if (!result.rowCount) {
+        response.status(404).json({ message: 'Project request not found.' });
+        return;
+      }
+      response.json({ project: result.rows[0] });
+    },
+  );
+
+  router.patch(
+    '/operations/companies/:id/status',
+    authenticate,
+    requireSuperadmin,
+    async (request, response): Promise<void> => {
+      const status = (request.body as Record<string, unknown> | undefined)?.status;
+      if (!['active', 'inactive', 'suspended'].includes(String(status))) {
+        response.status(400).json({ message: 'A valid company status is required.' });
+        return;
+      }
+      const result = await operationsPool.query(
+        `UPDATE companies SET status = $2, updated_at = NOW()
+         WHERE id = $1
+         RETURNING id, company_name, gst_number, status`,
+        [request.params['id'], status],
+      );
+      if (!result.rowCount) {
+        response.status(404).json({ message: 'Company not found.' });
+        return;
+      }
+      response.json({ company: result.rows[0] });
+    },
+  );
 
   router.get('/auth/local-demo', (_request, response): void => {
     response.json(localDemoCredentials

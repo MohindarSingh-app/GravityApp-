@@ -20,6 +20,13 @@ function TestField({ name, onFocus, enabled = true, expose }) {
   return null;
 }
 
+function NativeRefTestField({ name, onFocus, fieldRef, expose }) {
+  const focus = useCallback(() => onFocus(name), [name, onFocus]);
+  const field = useFormNavigationField(focus, true, fieldRef);
+  expose(field);
+  return null;
+}
+
 describe('form field navigation', () => {
   afterEach(() => {
     jest.useRealTimers();
@@ -88,6 +95,90 @@ describe('form field navigation', () => {
     expect(prompt()).toHaveLength(0);
     act(() => second.current.activate(true));
     expect(prompt().length).toBeGreaterThan(0);
+    act(() => tree.unmount());
+  });
+
+  it('passes native refs to measureLayout', () => {
+    const scrollTo = jest.fn();
+    const scrollRef = { current: { scrollTo } };
+    const fieldRef = {
+      current: {
+        measureLayout: jest.fn((relativeTo, onSuccess) => onSuccess(0, 48)),
+      },
+    };
+    let tree;
+    let exposedField;
+
+    act(() => {
+      tree = create(
+        <FormNavigationProvider scrollRef={scrollRef}>
+          <NativeRefTestField
+            name="native"
+            onFocus={jest.fn()}
+            fieldRef={fieldRef}
+            expose={(field) => { exposedField = field; }}
+          />
+        </FormNavigationProvider>,
+      );
+    });
+
+    expect(fieldRef.current.measureLayout).toHaveBeenCalledWith(
+      scrollRef.current,
+      expect.any(Function),
+      expect.any(Function),
+    );
+
+    act(() => exposedField.activate());
+    expect(scrollTo).toHaveBeenCalledWith({ y: 24, animated: true });
+
+    act(() => tree.unmount());
+  });
+
+  it('measures enabled fields and advances in visual y order', () => {
+    jest.useFakeTimers();
+    const focused = jest.fn();
+    const secondRef = {
+      current: {
+        measureLayout: jest.fn((relativeTo, onSuccess) => onSuccess(0, 80)),
+      },
+    };
+    const firstRef = {
+      current: {
+        measureLayout: jest.fn((relativeTo, onSuccess) => onSuccess(0, 20)),
+      },
+    };
+    const scrollRef = { current: { scrollTo: jest.fn() } };
+    const first = { current: null };
+    let tree;
+
+    act(() => {
+      tree = create(
+        <FormNavigationProvider scrollRef={scrollRef}>
+          <NativeRefTestField
+            name="first-y"
+            onFocus={focused}
+            fieldRef={firstRef}
+            expose={(field) => { first.current = field; }}
+          />
+          <NativeRefTestField
+            name="second-y"
+            onFocus={focused}
+            fieldRef={secondRef}
+            expose={() => {}}
+          />
+        </FormNavigationProvider>,
+      );
+    });
+
+    act(() => {
+      secondRef.current.measureLayout.mockClear();
+      firstRef.current.measureLayout.mockClear();
+      jest.advanceTimersByTime(0);
+      expect(first.current.advance()).toBe(true);
+      jest.advanceTimersByTime(180);
+    });
+
+    expect(focused).toHaveBeenCalledWith('second-y');
     act(() => tree.unmount());
   });
 });

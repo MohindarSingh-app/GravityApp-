@@ -8,6 +8,7 @@ const TONE_BY_STATUS = {
   success: 'success',
   pending: 'pending',
   open: 'pending',
+  accepted: 'info',
   in_progress: 'info',
   on_the_way: 'info',
   cancelled: 'error',

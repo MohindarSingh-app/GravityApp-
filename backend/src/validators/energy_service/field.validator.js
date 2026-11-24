@@ -23,7 +23,7 @@ const createJobSchema = requestSchema(z.object({
 }).strict());
 
 const jobStatusSchema = requestSchema(z.object({
-  status: z.enum(['on_the_way', 'in_progress', 'completed', 'cancelled']),
+  status: z.enum(['accepted', 'on_the_way', 'in_progress', 'completed', 'cancelled']),
   etaMinutes: z.number().int().min(1).max(240).optional(),
 }).strict(), uuidParam('id'));
 

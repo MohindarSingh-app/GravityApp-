@@ -17,10 +17,6 @@ const EMPTY = {
   city: '',
 };
 
-// Cities offered during company registration — matches the reference
-// prototype's City <select> (Jaipur / Jodhpur / Kota / Udaipur).
-export const COMPANY_CITIES = ['Jaipur', 'Jodhpur', 'Kota', 'Udaipur'];
-
 export function CompanyForm({ initial, submitLabel, onSubmit, onBack }) {
   const { colors, type } = useTheme();
   const [values, setValues] = useState({ ...EMPTY, ...initial });
@@ -29,8 +25,6 @@ export function CompanyForm({ initial, submitLabel, onSubmit, onBack }) {
   const [loading, setLoading] = useState(false);
   const { groups } = useCatalog('industry');
   const industries = groups.industry.map((item) => ({ value: item.label, label: item.label }));
-  const cityOptions = COMPANY_CITIES.map((city) => ({ value: city, label: city }));
-
   function setField(key, value) {
     setValues((current) => ({ ...current, [key]: value }));
     setErrors((current) => ({ ...current, [key]: '' }));
@@ -89,13 +83,13 @@ export function CompanyForm({ initial, submitLabel, onSubmit, onBack }) {
       ) : (
         <Text style={type.small}>Enter a 15-character GSTIN. For testing, a format-correct sample number is accepted.</Text>
       )}
-      <Select
+      <TextField
         label="City"
         value={values.city}
-        placeholder="Select city..."
-        options={cityOptions}
-        onChange={(value) => setField('city', value)}
+        onChangeText={(value) => setField('city', value)}
         error={errors.city}
+        autoComplete="postal-address-locality"
+        textContentType="addressCity"
       />
       <View style={onBack ? styles.actions : undefined}>
         {onBack ? (

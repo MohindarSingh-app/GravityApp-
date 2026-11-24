@@ -11,7 +11,15 @@ const attachmentSupport = require('./customer/support');
 const customerPresenters = require('./customer/presenters');
 const { withTransaction } = require('../../utils/energy_service/transaction');
 
-const OPEN_STATUSES = new Set(['open', 'on_the_way', 'in_progress']);
+const OPEN_STATUSES = new Set(['open', 'accepted', 'on_the_way', 'in_progress']);
+const JOB_TRANSITIONS = {
+  open: new Set(['accepted', 'cancelled']),
+  accepted: new Set(['on_the_way', 'in_progress', 'cancelled']),
+  on_the_way: new Set(['in_progress', 'completed', 'cancelled']),
+  in_progress: new Set(['completed', 'cancelled']),
+  completed: new Set(),
+  cancelled: new Set(),
+};
 
 function requireCompany(user) {
   if (!user.company_id || !canAccessCompany(user, user.company_id)) {
@@ -317,6 +325,13 @@ async function setJobStatus(user, jobId, input, req) {
   if (!existing) throw new AppError('Job not found.', 404, 'NOT_FOUND');
   if (!OPEN_STATUSES.has(existing.status) && input.status !== existing.status) {
     throw new AppError('This job is already closed.', 409, 'JOB_CLOSED');
+  }
+  const allowed = JOB_TRANSITIONS[existing.status];
+  if (!allowed || !allowed.has(input.status)) {
+    throw new AppError('That job status change is not allowed.', 409, 'INVALID_JOB_TRANSITION', {
+      from: existing.status,
+      to: input.status,
+    });
   }
   const eta = input.status === 'on_the_way' ? (input.etaMinutes || 30) : null;
   const job = await fieldModel.updateJobStatus(jobId, companyId, input.status, eta);

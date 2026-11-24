@@ -176,6 +176,7 @@ export function boardSearch(operations, query) {
 export function jobStatusLabel(status) {
   const labels = {
     open: 'Open',
+    accepted: 'Accepted',
     on_the_way: 'On the way',
     in_progress: 'In progress',
     completed: 'Done',

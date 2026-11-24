@@ -1,4 +1,7 @@
 import {
+  amcCoverage,
+  amcQuoteErrors,
+  buildAmcQuote,
   buildProject,
   buildRepair,
   buildReschedule,
@@ -6,6 +9,51 @@ import {
   projectTypeDetailFields,
   validateReschedule,
 } from './customerFlow';
+
+describe('AMC quote flow', () => {
+  const catalog = {
+    offer: { label: 'Complete AMC' },
+    equipment: [
+      { code: 'vfd', label: 'VFD / Drives' },
+      { code: 'plc', label: 'PLC / Automation' },
+    ],
+    contractTypes: [
+      { code: 'comprehensive', label: 'Comprehensive AMC' },
+    ],
+    plantFields: [
+      { code: 'plantArea', label: 'Plant area', meta: { required: true } },
+    ],
+  };
+
+  test('requires complete equipment or explicit equipment selection', () => {
+    expect(amcQuoteErrors({}, catalog)).toMatchObject({
+      equipment: 'Choose the equipment to cover.',
+    });
+  });
+
+  test('builds a submitted new AMC request without requiring a preferred date', () => {
+    const payload = buildAmcQuote({
+      complete: true,
+      contractType: 'comprehensive',
+      plantArea: '5000 sq ft',
+      siteId: 'site-1',
+    }, catalog);
+    expect(payload).toEqual({
+      siteId: 'site-1',
+      requestType: 'new_amc',
+      requestedService: 'Complete AMC — Comprehensive AMC',
+      description: 'Plant area: 5000 sq ft',
+      submit: true,
+    });
+  });
+
+  test('covers selected equipment explicitly when complete mode is off', () => {
+    expect(amcCoverage({
+      complete: false,
+      equipment: ['vfd', 'plc'],
+    }, catalog)).toBe('VFD / Drives, PLC / Automation');
+  });
+});
 
 describe('AMC reschedule flow', () => {
   const now = new Date('2026-10-11T00:00:00');

@@ -1,4 +1,6 @@
-import { Injectable, signal } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { Injectable, inject, signal } from '@angular/core';
+import { firstValueFrom } from 'rxjs';
 
 /* ============================================================
    OperationsService — platform operations data (mock layer)
@@ -236,6 +238,67 @@ const CATEGORY_REVENUE = [
 
 @Injectable({ providedIn: 'root' })
 export class OperationsService {
+  private readonly http = inject(HttpClient);
+  private readonly apiPrefix = '/api/superadmin/console/operations';
+
+  constructor() {
+    void this.loadOverview();
+  }
+
+  private async loadOverview(): Promise<void> {
+    try {
+      const overview = await firstValueFrom(this.http.get<{
+        jobs: Array<{ id: string; code: string; title: string; status: string; priority: string; location_label: string; engineer_name: string; estimate_amount: number }>;
+        amcs: unknown[];
+        repairs: Array<{ id: string; ticket_number: string; status: string; issue_description: string }>;
+        projects: Array<{ id: string; request_number: string; title: string; status: string; budget_amount: number }>;
+      }>(`${this.apiPrefix}/overview`, { withCredentials: true }));
+
+      this.jobs.set(overview.jobs.map((job) => ({
+        id: job.code || job.id,
+        company: 'Live company',
+        service: job.title,
+        partner: job.engineer_name || null,
+        status: job.status === 'completed'
+          ? 'completed'
+          : String(job.status).includes('sla') || job.priority === 'emergency'
+            ? 'sla-risk'
+            : job.status === 'open' ? 'unassigned' : 'progress',
+        slaMinsLeft: job.priority === 'emergency' ? 30 : null,
+        amount: Number(job.estimate_amount || 0),
+        site: job.location_label || 'Company site',
+      })));
+      this.repairs.set(overview.repairs.map((repair) => ({
+        id: repair.ticket_number || repair.id,
+        device: repair.issue_description || 'Registered device',
+        partner: 'Not assigned',
+        stage: this.repairStage(repair.status),
+        inAt: 'Live',
+        cost: 0,
+      })));
+      this.projects.set(overview.projects.map((project) => ({
+        id: project.request_number || project.id,
+        company: 'Live company',
+        title: project.title,
+        panels: 1,
+        status: project.status === 'completed'
+          ? 'delivered'
+          : project.status === 'in_progress' ? 'in-production' : 'requested',
+        eta: 'Live',
+        value: Number(project.budget_amount || 0),
+      })));
+    } catch {
+      // Keep the seeded preview data available if the live API is unreachable.
+    }
+  }
+
+  private repairStage(status: string): RepairTicket['stage'] {
+    if (status === 'returned' || status === 'completed') return 'delivered';
+    if (status === 'repair_in_progress') return 'repairing';
+    if (status === 'diagnosis' || status === 'estimate_required') return 'diagnosis';
+    if (status === 'ready') return 'qc';
+    return 'received';
+  }
   /* -------- live signals -------- */
   readonly jobs = signal<Job[]>(JOBS);
   readonly partners = signal<Partner[]>(PARTNERS);
@@ -269,12 +332,19 @@ export class OperationsService {
   /* -------- actions (superadmin workflows) -------- */
 
   assignJob(jobId: string, partnerName: string): void {
+    void firstValueFrom(this.http.patch(`${this.apiPrefix}/jobs/${encodeURIComponent(jobId)}/status`, {
+      status: 'accepted',
+      engineerName: partnerName,
+    }, { withCredentials: true })).catch(() => undefined);
     this.jobs.update((list) =>
       list.map((j) => (j.id === jobId ? { ...j, partner: partnerName, status: 'progress' as const, slaMinsLeft: j.slaMinsLeft ?? 120 } : j)),
     );
   }
 
   completeJob(jobId: string): void {
+    void firstValueFrom(this.http.patch(`${this.apiPrefix}/jobs/${encodeURIComponent(jobId)}/status`, {
+      status: 'completed',
+    }, { withCredentials: true })).catch(() => undefined);
     this.jobs.update((list) => list.map((j) => (j.id === jobId ? { ...j, status: 'completed' as const, slaMinsLeft: null } : j)));
   }
 
@@ -315,6 +385,17 @@ export class OperationsService {
   }
 
   advanceRepair(id: string): void {
+    const repair = this.repairs().find((item) => item.id === id);
+    const nextStatus = repair?.stage === 'received' ? 'diagnosis'
+      : repair?.stage === 'diagnosis' ? 'repair_in_progress'
+      : repair?.stage === 'repairing' ? 'ready'
+      : repair?.stage === 'qc' ? 'delivered'
+      : 'completed';
+    if (nextStatus !== 'delivered') {
+      void firstValueFrom(this.http.patch(`${this.apiPrefix}/repairs/${encodeURIComponent(id)}/status`, {
+        status: nextStatus,
+      }, { withCredentials: true })).catch(() => undefined);
+    }
     const order: RepairTicket['stage'][] = ['received', 'diagnosis', 'repairing', 'qc', 'delivered'];
     this.repairs.update((list) =>
       list.map((r) => {
@@ -326,6 +407,9 @@ export class OperationsService {
   }
 
   startProduction(id: string): void {
+    void firstValueFrom(this.http.patch(`${this.apiPrefix}/projects/${encodeURIComponent(id)}/status`, {
+      status: 'in_progress',
+    }, { withCredentials: true })).catch(() => undefined);
     this.projects.update((list) => list.map((p) => (p.id === id ? { ...p, status: 'in-production' as const, eta: '18 Nov' } : p)));
   }
 }

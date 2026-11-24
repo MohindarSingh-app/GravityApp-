@@ -21,6 +21,8 @@ npm ci
 
 Set `SUPERADMIN_EMAIL`, `SUPERADMIN_NAME`, and `SUPERADMIN_PASSWORD` before the first start. The console admin records are stored in the separate `data/superadmin-access-control.json` file (or `SUPERADMIN_DATA_FILE`) so they do not conflict with the operational PostgreSQL database.
 
+Set `DB_NAME` to the PostgreSQL database the backend should use; it defaults to `energy_hub`. An existing database with that name is reused.
+
 ## Run
 
 ```powershell
@@ -36,3 +38,17 @@ npm test
 ```
 
 The suite includes Superadmin authentication, permissions, storage, and a shared-process integration test, along with the provider and service backend checks.
+
+## Local demo data
+
+```powershell
+npm run migrate
+npm run seed:demo
+npm start
+```
+
+The seed is idempotent and creates a sample Service Admin company, sites, users, jobs, AMC, repair, project, compliance and marketplace records.
+
+- Service Admin phone: `+919876543210`
+- Fixed development OTP: `123456`
+- Energy Hub demo partner: `9000000099`

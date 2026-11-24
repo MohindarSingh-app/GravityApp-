@@ -1,7 +1,7 @@
 import { fieldApi } from '../../../api/resources';
 import { jobStatusLabel } from '../Dashboard/dashboardView';
 
-export const ACTIVE_JOB_STATUSES = ['open', 'pending', 'in_progress', 'on_the_way'];
+export const ACTIVE_JOB_STATUSES = ['open', 'pending', 'accepted', 'in_progress', 'on_the_way'];
 export const DONE_JOB_STATUSES = ['completed', 'done'];
 
 export function isActiveJob(job) {
@@ -51,7 +51,8 @@ export function jobTimeline(job) {
       state: index === 0 ? 'complete' : 'pending',
     }));
   }
-  if (status === 'on_the_way') activeIndex = 2;
+  if (status === 'accepted') activeIndex = 1;
+  else if (status === 'on_the_way') activeIndex = 2;
   else if (status === 'in_progress') activeIndex = 3;
   else if (status === 'completed' || status === 'done') activeIndex = 4;
   else if (job && job.engineerName) activeIndex = 1;

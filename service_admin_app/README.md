@@ -16,7 +16,7 @@ npm run android
 
 This is a bare React Native CLI Android app. `npm run start` starts Metro; `npm run android` builds and installs the native debug app on a connected device or emulator. No Expo Go or Expo development server is used.
 
-For a phone connected over Wi-Fi ADB, pair and connect it first, then run `npm run android:wifi`. To select one device when several are connected, set `$env:ANDROID_SERIAL` to its ADB serial before running the script. Metro and the phone must be able to reach one another; start the backend separately and ensure it listens on `0.0.0.0`. Set `EXPO_PUBLIC_API_URL` in `.env` to the backend's reachable LAN IP and port. The native app reads this configuration at build time. Release builds only allow HTTPS.
+For a phone connected over Wi-Fi ADB, pair and connect it first, then run `npm run android:wifi`. To select one device when several are connected, set `$env:ANDROID_SERIAL` to its ADB serial before running the script. Only run one app's Metro server at a time; both apps use port 8081, so stop the other app's server first. Metro and the phone must be able to reach one another; start the backend separately and ensure it listens on `0.0.0.0`. Copy `.env.example` to `.env` and set `EXPO_PUBLIC_API_URL` to the backend computer's reachable LAN IP and port (for example, `http://192.168.1.8:3000`). The native app reads this configuration at build time, so rebuild/reinstall after changing it. Release builds only allow HTTPS.
 
 Rebuild the native app after pulling or changing `.env`. Site GPS uses `@react-native-community/geolocation`, linked through React Native autolinking.
 

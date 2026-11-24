@@ -146,7 +146,7 @@ const startMetro = async () => {
   }
 
   console.log('Starting the React Native Metro server...');
-  metroProcess = spawn(process.execPath, [reactNativeCli, 'start', '--host', '0.0.0.0', '--port', '8081'], {
+  metroProcess = spawn(process.execPath, [reactNativeCli, 'start', '--host', '127.0.0.1', '--port', '8081'], {
     cwd: appDirectory,
     env: process.env,
     stdio: 'inherit',

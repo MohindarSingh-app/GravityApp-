@@ -274,12 +274,12 @@ async function updateRequest(id, companyId, fields, client) {
 async function setRequestStatus(id, companyId, fields, client) {
   const result = await db(client).query(
     `UPDATE amc_requests
-     SET status = $3,
+     SET status = $3::varchar,
          scheduled_date = COALESCE($4::date, scheduled_date),
-         scheduled_time = CASE WHEN $5::boolean THEN $6 ELSE scheduled_time END,
+         scheduled_time = CASE WHEN $5::boolean THEN $6::varchar ELSE scheduled_time END,
          submitted_at = COALESCE(submitted_at, $7),
-         cancelled_at = CASE WHEN $3 = 'cancelled' THEN COALESCE(cancelled_at, NOW()) ELSE cancelled_at END,
-         completed_at = CASE WHEN $3 = 'completed' THEN COALESCE(completed_at, NOW()) ELSE completed_at END
+         cancelled_at = CASE WHEN $3::varchar = 'cancelled' THEN COALESCE(cancelled_at, NOW()) ELSE cancelled_at END,
+         completed_at = CASE WHEN $3::varchar = 'completed' THEN COALESCE(completed_at, NOW()) ELSE completed_at END
      WHERE id = $1 AND company_id = $2
      RETURNING ${REQUEST_COLUMNS}`,
     [

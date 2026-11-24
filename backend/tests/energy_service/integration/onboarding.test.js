@@ -731,6 +731,76 @@ test('marketplace catalog, persisted cart, sandbox order and tracking use databa
   }
 });
 
+test('compliance certificates support valid, expiring, and expired status display', async () => {
+  const session = await onboardingUser();
+  const company = await api(harness.base, '/api/companies', {
+    method: 'POST',
+    token: session.token,
+    body: {
+      companyName: 'Compliance Flow Co',
+      gst: uniqueGstin(),
+      industry: 'Manufacturing',
+      city: 'Jaipur',
+    },
+  });
+  assert.equal(company.status, 201, company.text);
+  const companyId = company.payload.data.company.id;
+  const site = await api(harness.base, `/api/companies/${companyId}/sites`, {
+    method: 'POST',
+    token: session.token,
+    body: {
+      siteName: 'Compliance Plant',
+      fullAddress: 'Plot 12, Sitapura Industrial Area',
+      city: 'Jaipur',
+      latitude: 26.763,
+      longitude: 75.827,
+      siteType: 'plant',
+    },
+  });
+  assert.equal(site.status, 201, site.text);
+
+  const valid = await api(harness.base, '/api/field/certs', {
+    method: 'POST',
+    token: session.token,
+    body: {
+      name: 'Valid safety certificate',
+      expiresAt: new Date(Date.now() + 100 * 24 * 60 * 60 * 1000).toISOString(),
+      siteId: site.payload.data.site.id,
+    },
+  });
+  assert.equal(valid.status, 201, valid.text);
+  assert.equal(valid.payload.data.cert.status, 'valid');
+
+  const expiring = await api(harness.base, '/api/field/certs', {
+    method: 'POST',
+    token: session.token,
+    body: {
+      name: 'Expiring safety certificate',
+      expiresAt: new Date(Date.now() + 20 * 24 * 60 * 60 * 1000).toISOString(),
+      siteId: site.payload.data.site.id,
+    },
+  });
+  assert.equal(expiring.status, 201, expiring.text);
+  assert.equal(expiring.payload.data.cert.status, 'expiring');
+
+  const expired = await api(harness.base, '/api/field/certs', {
+    method: 'POST',
+    token: session.token,
+    body: {
+      name: 'Expired safety certificate',
+      expiresAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+      siteId: site.payload.data.site.id,
+    },
+  });
+  assert.equal(expired.status, 201, expired.text);
+  assert.equal(expired.payload.data.cert.status, 'expired');
+
+  const list = await api(harness.base, '/api/field/certs', { token: session.token });
+  assert.equal(list.status, 200, list.text);
+  assert.equal(list.payload.data.certs.length, 3);
+  assert.ok(list.payload.data.certs.some((cert) => cert.status === 'expired'));
+});
+
 test('AMC contract list returns the active count beyond the current page', async () => {
   const session = await onboardingUser();
   const companyResponse = await api(harness.base, '/api/companies', {
@@ -1007,6 +1077,78 @@ test('unauthorized and expired sessions are rejected', async () => {
   assert.equal(expired.status, 401);
 });
 
+test('refresh tokens rotate once and reused old tokens revoke the session chain', async () => {
+  const session = await onboardingUser();
+
+  const firstRefresh = await api(harness.base, '/api/auth/refresh', {
+    method: 'POST',
+    body: { refreshToken: session.refreshToken },
+  });
+  assert.equal(firstRefresh.status, 200, firstRefresh.text);
+  assert.ok(firstRefresh.payload.data.accessToken);
+  assert.ok(firstRefresh.payload.data.refreshToken);
+
+  const reusedOldToken = await api(harness.base, '/api/auth/refresh', {
+    method: 'POST',
+    body: { refreshToken: session.refreshToken },
+  });
+  assert.equal(reusedOldToken.status, 401);
+  assert.equal(reusedOldToken.payload.error.code, 'INVALID_SESSION');
+
+  const rotatedToken = await api(harness.base, '/api/auth/refresh', {
+    method: 'POST',
+    body: { refreshToken: firstRefresh.payload.data.refreshToken },
+  });
+  assert.equal(rotatedToken.status, 401);
+  assert.equal(rotatedToken.payload.error.code, 'INVALID_SESSION');
+
+  const me = await api(harness.base, '/api/auth/me', {
+    token: firstRefresh.payload.data.accessToken,
+  });
+  assert.equal(me.status, 401);
+});
+
+test('logout revokes the refresh session and logout-all revokes remaining devices', async () => {
+  const session = await onboardingUser();
+
+  const logout = await api(harness.base, '/api/auth/logout', {
+    method: 'POST',
+    body: { refreshToken: session.refreshToken },
+  });
+  assert.equal(logout.status, 200, logout.text);
+
+  const meAfterLogout = await api(harness.base, '/api/auth/me', {
+    token: session.token,
+  });
+  assert.equal(meAfterLogout.status, 401);
+
+  const refreshAfterLogout = await api(harness.base, '/api/auth/refresh', {
+    method: 'POST',
+    body: { refreshToken: session.refreshToken },
+  });
+  assert.equal(refreshAfterLogout.status, 401);
+  assert.equal(refreshAfterLogout.payload.error.code, 'INVALID_SESSION');
+
+  const fresh = await onboardingUser();
+  const second = await api(harness.base, '/api/auth/refresh', {
+    method: 'POST',
+    body: { refreshToken: fresh.refreshToken },
+  });
+  assert.equal(second.status, 200, second.text);
+
+  const logoutAll = await api(harness.base, '/api/auth/logout-all', {
+    method: 'POST',
+    token: second.payload.data.accessToken,
+  });
+  assert.equal(logoutAll.status, 200, logoutAll.text);
+
+  const revokedRefresh = await api(harness.base, '/api/auth/refresh', {
+    method: 'POST',
+    body: { refreshToken: second.payload.data.refreshToken },
+  });
+  assert.equal(revokedRefresh.status, 401);
+});
+
 test('set password, change password, and session listing work', async () => {
   const session = await onboardingUser();
   const set = await api(harness.base, '/api/auth/set-password', {
@@ -1026,6 +1168,267 @@ test('set password, change password, and session listing work', async () => {
     body: { currentPassword: password, newPassword: 'An0ther-Strong-pass!' },
   });
   assert.equal(changed.status, 200);
+});
+
+test('emergency booking creates a live 30-minute job and tracks status', async () => {
+  const session = await onboardingUser();
+  const company = await api(harness.base, '/api/companies', {
+    method: 'POST',
+    token: session.token,
+    body: {
+      companyName: 'Emergency Flow Co',
+      gst: uniqueGstin(),
+      industry: 'Manufacturing',
+      city: 'Jaipur',
+    },
+  });
+  assert.equal(company.status, 201, company.text);
+  const companyId = company.payload.data.company.id;
+  const site = await api(harness.base, `/api/companies/${companyId}/sites`, {
+    method: 'POST',
+    token: session.token,
+    body: {
+      siteName: 'Emergency Plant',
+      fullAddress: 'Plot 7, Sitapura Industrial Area',
+      city: 'Jaipur',
+      latitude: 26.763,
+      longitude: 75.827,
+      siteType: 'plant',
+    },
+  });
+  assert.equal(site.status, 201, site.text);
+  await api(harness.base, '/api/profile', {
+    method: 'POST',
+    token: session.token,
+    body: { name: 'Emergency Owner' },
+  });
+
+  const emergency = await api(harness.base, '/api/field/signals', {
+    method: 'POST',
+    token: session.token,
+    body: {
+      kind: 'emergency',
+      title: 'VFD overload',
+      detail: 'Production stopped after repeated overcurrent alarms.',
+      siteId: site.payload.data.site.id,
+      etaMinutes: 30,
+    },
+  });
+  assert.equal(emergency.status, 201, emergency.text);
+  assert.equal(emergency.payload.data.job.priority, 'emergency');
+  assert.equal(emergency.payload.data.job.status, 'open');
+  assert.equal(emergency.payload.data.signal.kind, 'emergency');
+  assert.equal(emergency.payload.data.job.etaMinutes, 30);
+
+  const jobs = await api(harness.base, '/api/field/jobs', { token: session.token });
+  assert.equal(jobs.status, 200, jobs.text);
+  const created = jobs.payload.data.jobs.find((job) =>
+    job.id === emergency.payload.data.job.id,
+  );
+  assert.ok(created);
+  assert.equal(created.priority, 'emergency');
+
+  const accepted = await api(harness.base, `/api/field/jobs/${created.id}/status`, {
+    method: 'PATCH',
+    token: session.token,
+    body: { status: 'accepted' },
+  });
+  assert.equal(accepted.status, 200, accepted.text);
+  assert.equal(accepted.payload.data.job.status, 'accepted');
+
+  const onWay = await api(harness.base, `/api/field/jobs/${created.id}/status`, {
+    method: 'PATCH',
+    token: session.token,
+    body: { status: 'on_the_way', etaMinutes: 18 },
+  });
+  assert.equal(onWay.status, 200, onWay.text);
+  assert.equal(onWay.payload.data.job.status, 'on_the_way');
+  assert.equal(onWay.payload.data.job.etaMinutes, 18);
+
+  const completed = await api(harness.base, `/api/field/jobs/${created.id}/status`, {
+    method: 'PATCH',
+    token: session.token,
+    body: { status: 'completed' },
+  });
+  assert.equal(completed.status, 200, completed.text);
+  assert.equal(completed.payload.data.job.status, 'completed');
+
+  const closed = await api(harness.base, `/api/field/jobs/${created.id}/status`, {
+    method: 'PATCH',
+    token: session.token,
+    body: { status: 'in_progress' },
+  });
+  assert.equal(closed.status, 409);
+  assert.equal(closed.payload.error.code, 'JOB_CLOSED');
+});
+
+test('project and repair requests submit with valid device and lifecycle data', async () => {
+  const session = await onboardingUser();
+  const company = await api(harness.base, '/api/companies', {
+    method: 'POST',
+    token: session.token,
+    body: {
+      companyName: 'Project Repair Flow Co',
+      gst: uniqueGstin(),
+      industry: 'Manufacturing',
+      city: 'Pune',
+    },
+  });
+  assert.equal(company.status, 201, company.text);
+  const companyId = company.payload.data.company.id;
+  const site = await api(harness.base, `/api/companies/${companyId}/sites`, {
+    method: 'POST',
+    token: session.token,
+    body: {
+      siteName: 'Project Repair Plant',
+      fullAddress: 'Plot 12, MIDC Pune',
+      city: 'Pune',
+      latitude: 18.5204,
+      longitude: 73.8567,
+      siteType: 'plant',
+    },
+  });
+  assert.equal(site.status, 201, site.text);
+  const siteId = site.payload.data.site.id;
+
+  const categories = await api(harness.base, '/api/customer/projects/categories', {
+    token: session.token,
+  });
+  assert.equal(categories.status, 200, categories.text);
+  assert.ok(categories.payload.data.categories.length > 0);
+  const category = categories.payload.data.categories[0];
+  assert.ok(category.types.length > 0);
+  const project = await api(harness.base, '/api/customer/projects/requests', {
+    method: 'POST',
+    token: session.token,
+    body: {
+      siteId,
+      category: category.code,
+      projectType: category.types[0].code,
+      title: 'Demo plant electrical upgrade',
+      description: 'Upgrade the existing plant panel and electrical distribution.',
+      submit: true,
+    },
+  });
+  assert.equal(project.status, 201, project.text);
+  assert.equal(project.payload.data.projectRequest.status, 'submitted');
+  assert.ok(project.payload.data.confirmation.projectRequestId);
+
+  const device = await api(harness.base, '/api/customer/repairs/devices', {
+    method: 'POST',
+    token: session.token,
+    body: {
+      siteId,
+      deviceType: 'vfd',
+      manufacturer: 'ABB',
+      model: 'ACS580',
+      serialNumber: `P14-${Date.now()}`,
+      location: 'VFD Control Room',
+    },
+  });
+  assert.equal(device.status, 201, device.text);
+
+  const repair = await api(harness.base, '/api/customer/repairs/tickets', {
+    method: 'POST',
+    token: session.token,
+    body: {
+      siteId,
+      deviceId: device.payload.data.device.id,
+      repairScope: 'workshop',
+      serviceType: 'component_repair',
+      priority: 'high',
+      issueDescription: 'Repeated overcurrent alarm and output phase fault.',
+      submit: true,
+    },
+  });
+  assert.equal(repair.status, 201, repair.text);
+  assert.equal(repair.payload.data.ticket.status, 'submitted');
+  assert.equal(repair.payload.data.confirmation.status, 'submitted');
+
+  const skippedRepairStatus = await api(harness.base, `/api/customer/repairs/tickets/${repair.payload.data.ticket.id}/status`, {
+    method: 'POST',
+    token: session.token,
+    body: { status: 'repair_in_progress' },
+  });
+  assert.equal(skippedRepairStatus.status, 409);
+  assert.equal(skippedRepairStatus.payload.error.code, 'INVALID_STATUS_TRANSITION');
+});
+
+test('AMC quote and quick service requests submit and enforce valid lifecycle transitions', async () => {
+  const session = await onboardingUser();
+  const company = await api(harness.base, '/api/companies', {
+    method: 'POST',
+    token: session.token,
+    body: {
+      companyName: 'AMC Quick Flow Co',
+      gst: uniqueGstin(),
+      industry: 'Manufacturing',
+      city: 'Jaipur',
+    },
+  });
+  assert.equal(company.status, 201, company.text);
+  const companyId = company.payload.data.company.id;
+  const site = await api(harness.base, `/api/companies/${companyId}/sites`, {
+    method: 'POST',
+    token: session.token,
+    body: {
+      siteName: 'AMC Quick Plant',
+      fullAddress: 'Plot 9, Sitapura Industrial Area',
+      city: 'Jaipur',
+      latitude: 26.763,
+      longitude: 75.827,
+      siteType: 'plant',
+    },
+  });
+  assert.equal(site.status, 201, site.text);
+
+  const amc = await api(harness.base, '/api/customer/amc/requests', {
+    method: 'POST',
+    token: session.token,
+    body: {
+      siteId: site.payload.data.site.id,
+      requestType: 'new_amc',
+      serviceRequirement: 'Complete AMC — Comprehensive AMC',
+      description: 'Plant area: 5000 sq ft',
+      submit: true,
+    },
+  });
+  assert.equal(amc.status, 201, amc.text);
+  assert.equal(amc.payload.data.request.status, 'submitted');
+  assert.ok(amc.payload.data.confirmation.referenceId);
+
+  const amcList = await api(harness.base, '/api/customer/amc/requests?limit=50', {
+    token: session.token,
+  });
+  assert.equal(amcList.status, 200, amcList.text);
+  assert.equal(amcList.payload.data.pagination.total, 1);
+
+  const invalidSkip = await api(harness.base, `/api/customer/amc/requests/${amc.payload.data.request.id}/status`, {
+    method: 'POST',
+    token: session.token,
+    body: { status: 'confirmed' },
+  });
+  assert.equal(invalidSkip.status, 409);
+  assert.equal(invalidSkip.payload.error.code, 'INVALID_STATUS_TRANSITION');
+
+  const underReview = await api(harness.base, `/api/customer/amc/requests/${amc.payload.data.request.id}/status`, {
+    method: 'POST',
+    token: session.token,
+    body: { status: 'under_review' },
+  });
+  assert.equal(underReview.status, 200, underReview.text);
+
+  const categories = await api(harness.base, '/api/customer/service-categories', {
+    token: session.token,
+  });
+  assert.equal(categories.status, 200, categories.text);
+  assert.ok(categories.payload.data.categories.length > 0);
+  const category = categories.payload.data.categories[0];
+  const flow = await api(harness.base, `/api/customer/service-categories/${category.id}/services`, {
+    token: session.token,
+  });
+  assert.equal(flow.status, 200, flow.text);
+  assert.ok(Array.isArray(flow.payload.data.steps));
 });
 
 test('dashboard aggregates company data and hides restricted sections by role', async () => {
