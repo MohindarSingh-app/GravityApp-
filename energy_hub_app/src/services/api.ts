@@ -300,8 +300,19 @@ export class ApiService {
 
   // ---- five step field workflow ------------------------------------------
 
-  async checkIn(jobId: number | string) {
-    const response = await this.client.post(`/jobs/${jobId}/workflow/check-in`);
+  async checkIn(
+    jobId: number | string,
+    location?: { latitude: number; longitude: number },
+  ) {
+    const response = await this.client.post(`/jobs/${jobId}/workflow/check-in`, location ? { location } : {});
+    return response.data;
+  }
+
+  async updateJobLocation(
+    jobId: number | string,
+    location: { latitude: number; longitude: number },
+  ) {
+    const response = await this.client.post(`/jobs/${jobId}/workflow/location`, location);
     return response.data;
   }
 

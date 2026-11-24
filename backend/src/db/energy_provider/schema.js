@@ -262,6 +262,21 @@ const tables = {
     ],
   },
 
+  job_live_locations: {
+    columns: {
+      id: { type: 'id' },
+      job_id: { type: 'int', references: { table: 'jobs', column: 'id' } },
+      latitude: { type: 'real' },
+      longitude: { type: 'real' },
+      created_at: { type: 'datetime' },
+      updated_at: { type: 'datetime' },
+    },
+    indexes: [
+      { name: 'job', columns: ['job_id'], unique: true },
+      { name: 'updated_at', columns: ['updated_at'] },
+    ],
+  },
+
   job_parts: {
     columns: {
       id: { type: 'id' },

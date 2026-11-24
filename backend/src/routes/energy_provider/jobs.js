@@ -9,6 +9,7 @@ const {
   declineJob,
   listWorkflowSteps,
   checkIn,
+  recordLiveLocation,
   saveDiagnosis,
   saveParts,
   savePhotos,
@@ -28,6 +29,7 @@ router.post('/:id/accept', acceptJob);
 router.post('/:id/decline', declineJob);
 // Five step field workflow
 router.post('/:id/workflow/check-in', checkIn);
+router.post('/:id/workflow/location', recordLiveLocation);
 router.post('/:id/workflow/diagnosis', saveDiagnosis);
 router.post('/:id/workflow/parts', saveParts);
 router.post('/:id/workflow/photos', savePhotos);

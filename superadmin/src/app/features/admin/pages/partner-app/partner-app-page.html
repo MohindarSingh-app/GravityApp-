@@ -1,0 +1,43 @@
+<section class="page-head">
+  <div>
+    <h1>Partner App Overview</h1>
+    <p>Partner counts are read from the connected provider database. Flow descriptions are informational.</p>
+  </div>
+  <span class="pill">
+    @if (operations.sourceStatus('partner-app') === 'loading') {
+      Loading partners…
+    } @else {
+      {{ totalPartners() }} partners
+    }
+  </span>
+</section>
+
+<h2 class="sec-title">Partner Roles</h2>
+<div class="role-grid">
+  @for (r of roles(); track r.id) {
+  <div class="role-card">
+    <strong>{{ r.title }}</strong>
+    <p>{{ r.desc }}</p>
+    <span class="role-count">
+      @if (operations.sourceStatus('partner-app') === 'loading') {
+        Loading…
+      } @else {
+        {{ r.partners }} database records
+      }
+    </span>
+  </div>
+  }
+</div>
+
+<h2 class="sec-title">App Flows</h2>
+<div class="flow-list">
+  @for (f of flows; track f.id) {
+  <div class="flow-card">
+    <div class="fc-info">
+      <strong>{{ f.title }}</strong>
+      <code>{{ f.steps }}</code>
+    </div>
+    <span class="role-count">Informational</span>
+  </div>
+  }
+</div>

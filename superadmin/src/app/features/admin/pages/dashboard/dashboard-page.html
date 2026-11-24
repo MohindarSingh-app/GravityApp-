@@ -1,0 +1,309 @@
+<div class="dashboard-page">
+<header class="dashboard-toolbar page-head">
+  <div>
+    <h1>Dashboard</h1>
+    <p>Platform activity at a glance.</p>
+  </div>
+  <div class="dashboard-controls">
+    @if (canLoadPlatformData()) {
+      <button class="refresh-button" type="button" (click)="loadPlatformData()" [disabled]="loadingPlatformData()">
+        {{ loadingPlatformData() ? 'Refreshing…' : 'Refresh live data' }}
+      </button>
+    }
+  </div>
+</header>
+
+<div class="sample-notice" role="note">
+  Operational metrics and trends use database-backed records; unsupported sources are shown as disconnected.
+</div>
+
+@if (platformDataErrors().length) {
+  <div class="dashboard-errors" role="alert">
+    @for (error of platformDataErrors(); track error) {
+      <p>{{ error }}</p>
+    }
+  </div>
+}
+
+<section class="stat-grid" aria-label="Business metrics">
+  @for (metric of metrics(); track metric.label) {
+    <a class="stat-card" [attr.data-tone]="metric.tone" [routerLink]="metric.route">
+      <span class="stat-label">{{ metric.label }}</span>
+      <span class="stat-value">{{ metric.value }}</span>
+      <span class="stat-context">{{ metric.context }}</span>
+      <span class="stat-arrow" aria-hidden="true">↗</span>
+    </a>
+  }
+</section>
+
+<section class="insight-panel panel" aria-labelledby="insight-title">
+  <div class="insight-heading">
+    <div>
+      <span class="insight-kicker">AI-STYLE · RULE-BASED · EXPLAINABLE</span>
+      <h2 id="insight-title">Smart operating brief</h2>
+      <p>{{ aiOverview() }}</p>
+    </div>
+  </div>
+  @if (smartInsights().length) {
+    <div class="insight-list">
+      @for (insight of smartInsights(); track insight.title) {
+        <article class="insight-item" [attr.data-tone]="insight.tone">
+          <div>
+            <h3>{{ insight.title }}</h3>
+            <p>{{ insight.detail }}</p>
+          </div>
+          <a [routerLink]="insight.route">{{ insight.action }} <span aria-hidden="true">→</span></a>
+        </article>
+      }
+    </div>
+  } @else {
+    <p class="empty-state">No priority recommendations from the currently available signals.</p>
+  }
+</section>
+
+<section class="visual-grid" aria-label="Platform charts">
+  @if (canViewFinance()) {
+    <article class="panel revenue-panel">
+      <div class="panel-heading">
+        <div>
+          <h2>Revenue trend</h2>
+          <p>Recorded service earnings · {{ revenueTrend()[0]?.label }} to {{ revenueTrend()[revenueTrend().length - 1]?.label }}</p>
+        </div>
+        <div class="panel-actions">
+          <label class="filter-control">
+            <span>Period</span>
+            <select [value]="revenueMonths()" (change)="setRevenueMonths($event)" aria-label="Revenue chart period">
+              <option value="3">3 months</option>
+              <option value="6">6 months</option>
+            </select>
+          </label>
+          <a class="panel-link" routerLink="/finance">Finance <span aria-hidden="true">→</span></a>
+        </div>
+      </div>
+      <div class="trend-chart" role="img" aria-label="Monthly service earnings trend"
+        [style.grid-template-columns]="'repeat(' + revenueTrend().length + ', minmax(0, 1fr))'">
+        @for (point of revenueTrend(); track point.label) {
+          <div class="trend-column">
+            <span class="trend-value">{{ formatCurrency(point.value) }}</span>
+            <div class="trend-track">
+              <div class="trend-bar" [style.height.%]="point.height"></div>
+            </div>
+            <span class="trend-month">{{ point.label }}</span>
+          </div>
+        }
+      </div>
+    </article>
+  }
+
+  @if (canViewJobs()) {
+    <article class="panel status-panel">
+      <div class="panel-heading">
+        <div>
+          <h2>Job status</h2>
+          <p>All {{ ops.jobs().length }} recorded jobs</p>
+        </div>
+        <a class="panel-link" routerLink="/jobs">Jobs <span aria-hidden="true">→</span></a>
+      </div>
+      <div class="status-chart" role="img" aria-label="Jobs by current status">
+        @for (item of jobStatusBreakdown(); track item.status) {
+          <div class="status-chart-row">
+            <div class="status-chart-label">
+              <span>{{ item.label }}</span>
+              <strong>{{ item.count }}</strong>
+            </div>
+            <div class="status-track">
+              <span [style.background]="item.color" [style.width.%]="item.percentage"></span>
+            </div>
+          </div>
+        }
+      </div>
+    </article>
+  }
+
+  @if (canViewDirectory()) {
+  <article class="panel account-panel">
+    <div class="panel-heading">
+      <div>
+        <h2>Platform accounts</h2>
+        <p>Live registration sources · {{ loadingPlatformData() ? 'loading…' : appBreakdown().total + ' accounts' }}</p>
+      </div>
+      <a class="panel-link" routerLink="/directory">Directory <span aria-hidden="true">→</span></a>
+    </div>
+    <div class="partner-chart">
+      <div class="partner-donut" [style.background]="appBreakdown().donutStyle.background"
+        role="img" [attr.aria-label]="appBreakdown().total + ' live platform registrations'">
+        <span>{{ loadingPlatformData() ? '…' : appBreakdown().total }}<small>accounts</small></span>
+      </div>
+      <div class="account-legend">
+        @for (item of appBreakdown().items; track item.app) {
+          <div class="attention-row partner-legend-row">
+            <span class="attention-mark" [style.background]="item.color" aria-hidden="true"></span>
+            <span>{{ item.label }}</span>
+            <strong>{{ item.count }}</strong>
+          </div>
+        }
+      </div>
+    </div>
+    @if (canViewUsers()) {
+      @if (loadingPlatformData()) {
+        <p class="empty-state">Loading console access roles…</p>
+      } @else {
+        <div class="role-summary">
+          <span class="role-summary-title">Console access roles</span>
+          <div class="role-track" role="img" aria-label="Console users grouped by role">
+            @for (role of roleBreakdown(); track role.role) {
+              <span [style.background]="role.color" [style.width.%]="role.percentage"></span>
+            }
+          </div>
+          <div class="role-legend">
+            @for (role of roleBreakdown(); track role.role) {
+              <span><i [style.background]="role.color"></i>{{ role.label }} <strong>{{ role.count }}</strong></span>
+            }
+          </div>
+        </div>
+      }
+    }
+  </article>
+  }
+</section>
+
+<section class="performance-grid" aria-label="Customer and provider performance">
+  @if (canViewCompanies()) {
+    <article class="panel customer-panel">
+      <div class="panel-heading">
+        <div>
+          <h2>Customer portfolio</h2>
+          <p>{{ customerSummary().companies }} companies · {{ customerSummary().users }} users · {{ customerSummary().sites }} sites · {{ customerSummary().followUp }} need AMC follow-up</p>
+        </div>
+        <a class="panel-link" routerLink="/companies">Companies <span aria-hidden="true">→</span></a>
+      </div>
+      <div class="portfolio-toolbar">
+        <span>Companies ranked by recorded orders and service earnings</span>
+        <div class="filter-pills" aria-label="Filter customer accounts">
+          <button type="button" [attr.aria-pressed]="customerFilter() === 'all'" (click)="customerFilter.set('all')">All</button>
+          <button type="button" [attr.aria-pressed]="customerFilter() === 'active'" (click)="customerFilter.set('active')">Active AMC</button>
+          <button type="button" [attr.aria-pressed]="customerFilter() === 'follow-up'" (click)="customerFilter.set('follow-up')">Follow-up</button>
+        </div>
+      </div>
+      <p class="customer-rating-note">Customer ratings are not in the current data feed; this view compares billed value, jobs, sites and AMC status.</p>
+      <div class="portfolio-list">
+        @for (company of customerPerformance(); track company.name) {
+          <div class="portfolio-row">
+            <div class="portfolio-copy">
+              <strong>{{ company.name }}</strong>
+              <span>{{ company.totalJobs }} jobs · {{ company.sites }} sites · {{ company.portfolioShare }}% of portfolio</span>
+            </div>
+            <div class="portfolio-bar"><span [style.width.%]="company.revenuePercent"></span></div>
+            <strong class="portfolio-value">{{ formatCurrency(company.revenue) }}</strong>
+            <span class="amc-state" [attr.data-state]="company.amc.toLowerCase()">{{ company.amc }}</span>
+          </div>
+        } @empty {
+          <p class="empty-state">No customer accounts match this filter.</p>
+        }
+      </div>
+    </article>
+  }
+
+  @if (canViewDirectory()) {
+    <article class="panel provider-panel">
+      <div class="panel-heading">
+        <div>
+          <h2>Provider leaderboard</h2>
+          <p>Star score ranks first, then experience and completed services</p>
+        </div>
+        <a class="panel-link" routerLink="/directory">Providers <span aria-hidden="true">→</span></a>
+      </div>
+      @if (loadingPlatformData()) {
+        <p class="empty-state">Loading provider ratings…</p>
+      } @else if (providerPerformance().length) {
+        <div class="provider-list">
+          @for (provider of providerPerformance(); track provider.registrationId) {
+            <a class="provider-row" [attr.data-rank]="$index + 1" [routerLink]="['/directory', provider.id]">
+              <span class="provider-rank" role="img" [attr.aria-label]="'Rank ' + ($index + 1)">
+                @if ($index === 0) { 🏆 } @else if ($index === 1) { 🥈 } @else if ($index === 2) { 🥉 } @else { {{ $index + 1 }} }
+              </span>
+              <span class="provider-copy">
+                <strong>{{ provider.displayName }}</strong>
+                <small>{{ formatExperience(provider.profile.experienceYears) }} · {{ provider.profile.completedServices }} services</small>
+              </span>
+              <span class="provider-rating">
+                <span class="provider-stars" role="img" [attr.aria-label]="formatRating(provider.profile.rating) + ' out of 5'">
+                  @for (filled of provider.stars; track $index) {
+                    <span [class.filled]="filled">★</span>
+                  }
+                </span>
+                @if ((provider.profile.ratingCount ?? 0) > 0) {
+                  <small>{{ provider.profile.ratingCount }} ratings</small>
+                } @else {
+                  <small>Saved profile score</small>
+                }
+              </span>
+              <strong class="provider-score">{{ formatRating(provider.profile.rating) }}</strong>
+            </a>
+          }
+        </div>
+      } @else {
+        <p class="empty-state">No provider ratings are available in the live directory response.</p>
+      }
+    </article>
+  }
+</section>
+
+<section class="dashboard-grid" aria-label="Operational follow-up">
+  @if (canViewJobs()) {
+    <article class="panel priority-panel">
+      <div class="panel-heading">
+        <div>
+          <h2>Priority jobs</h2>
+          <p>Start with the work most likely to miss its SLA.</p>
+        </div>
+        <a class="panel-link" routerLink="/jobs">View jobs <span aria-hidden="true">→</span></a>
+      </div>
+      @if (priorityJobs().length) {
+        <div class="priority-list">
+          @for (job of priorityJobs(); track job.id) {
+            <a class="priority-row" routerLink="/jobs">
+              <span class="job-status" [attr.data-status]="job.status" aria-hidden="true"></span>
+              <span class="job-main">
+                <strong>{{ job.id }}</strong>
+                <span>{{ job.company }} · {{ job.service }}</span>
+              </span>
+              <span class="job-time" [class.urgent]="job.status === 'sla-risk'">{{ jobTimeLabel(job) }}</span>
+              <span class="status-pill" [attr.data-status]="job.status">{{ jobStatusLabel(job) }}</span>
+            </a>
+          }
+        </div>
+      } @else {
+        <p class="empty-state">No active jobs need follow-up.</p>
+      }
+    </article>
+  }
+
+  <article class="panel attention-panel">
+    <div class="panel-heading">
+      <div>
+        <h2>Needs attention</h2>
+        <p>Open each item to review and take action.</p>
+      </div>
+    </div>
+    @if (attentionItems().length) {
+      <div class="attention-list">
+        @for (item of attentionItems(); track item.label) {
+          <a class="attention-row" [routerLink]="item.route">
+            <span class="attention-mark" [attr.data-tone]="item.tone" aria-hidden="true"></span>
+            <span class="attention-copy">
+              <strong>{{ item.label }}</strong>
+              <small>{{ item.detail }}</small>
+            </span>
+            <span class="attention-value">{{ item.value }}</span>
+          </a>
+        }
+      </div>
+    } @else {
+      <p class="empty-state">No pending follow-ups for the pages you can access.</p>
+    }
+  </article>
+
+</section>
+</div>
+

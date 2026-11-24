@@ -1,0 +1,256 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Superadmin UI Standardization &amp; Project Audit</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #172033;
+      --muted: #58647a;
+      --subtle: #7d899d;
+      --primary: #2457d6;
+      --primary-soft: #edf2ff;
+      --surface: #fff;
+      --canvas: #f5f7fb;
+      --border: #e2e8f0;
+      --green: #15803d;
+      --amber: #a16207;
+      --red: #b42318;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--canvas);
+      color: var(--ink);
+      font: 14px/1.6 Inter, "Segoe UI", Arial, sans-serif;
+    }
+    main { width: min(1180px, calc(100% - 32px)); margin: 28px auto 64px; }
+    .hero {
+      padding: 28px;
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      background: linear-gradient(145deg, #edf2ff, var(--surface) 72%);
+      box-shadow: 0 8px 24px rgba(15, 23, 42, .05);
+    }
+    .eyebrow {
+      margin: 0 0 7px;
+      color: var(--primary);
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+    }
+    h1 { margin: 0; font-size: clamp(26px, 4vw, 38px); line-height: 1.15; }
+    h2 { margin: 0 0 12px; font-size: 21px; }
+    h3 { margin: 0 0 7px; font-size: 15px; }
+    p { margin: 7px 0; color: var(--muted); }
+    .hero p { max-width: 850px; font-size: 15px; }
+    .meta { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+    .tag, .status {
+      display: inline-flex;
+      align-items: center;
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 3px 9px;
+      background: var(--surface);
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+    section { margin-top: 22px; }
+    .card {
+      padding: 20px;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: var(--surface);
+      box-shadow: 0 3px 14px rgba(15, 23, 42, .035);
+    }
+    .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+    ul { margin: 8px 0 0; padding-left: 20px; color: var(--muted); }
+    li + li { margin-top: 5px; }
+    a { color: var(--primary); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); }
+    table { width: 100%; border-collapse: collapse; min-width: 900px; }
+    th, td { padding: 11px 12px; border-bottom: 1px solid var(--border); text-align: left; vertical-align: top; }
+    th { background: #f8faff; color: var(--subtle); font-size: 10px; letter-spacing: .06em; text-transform: uppercase; }
+    td { color: var(--muted); }
+    td:first-child { color: var(--ink); font-weight: 700; }
+    tr:last-child td { border-bottom: 0; }
+    .passed { color: var(--green); border-color: #bbf7d0; background: #f0fdf4; }
+    .partial { color: var(--amber); border-color: #fde68a; background: #fffbeb; }
+    .pending { color: var(--red); border-color: #fecaca; background: #fef2f2; }
+    .note { border-left: 4px solid var(--primary); padding: 10px 13px; background: var(--primary-soft); }
+    .small { color: var(--subtle); font-size: 12px; }
+    footer { margin-top: 22px; color: var(--subtle); font-size: 12px; }
+    @media (max-width: 700px) {
+      main { width: min(100% - 20px, 1180px); margin-top: 10px; }
+      .hero, .card { padding: 16px; }
+      .grid { grid-template-columns: minmax(0, 1fr); }
+    }
+  </style>
+</head>
+<body>
+<main>
+  <header class="hero">
+    <p class="eyebrow">Gravity Hub · Superadmin</p>
+    <h1>UI Standardization &amp; Project Audit</h1>
+    <p>This report records the Superadmin theme alignment work, route inventory, connected-app context, and functionality that still needs implementation or verification. App Registrations is the visual reference for the shared blue palette, soft surfaces, bordered cards, compact controls, and responsive spacing.</p>
+    <div class="meta">
+      <span class="tag">Audit date: 24 November 2026</span>
+      <span class="tag">22 admin page routes reviewed</span>
+      <span class="tag">No new image assets or icon dependency</span>
+      <span class="tag">No files staged or committed</span>
+    </div>
+  </header>
+
+  <section class="grid">
+    <article class="card">
+      <h2>Project structure and app relationship</h2>
+      <p>The repository contains two React Native client applications and the Angular Superadmin web console. The directory combines registration records from the two client apps; Superadmin is the control plane, not one of those two clients.</p>
+      <ul>
+        <li><strong>Energy Hub:</strong> <code>energy_hub_app/</code>, React Native; includes auth, registration, marketplace, and partner navigation flows.</li>
+        <li><strong>Service Admin:</strong> <code>service_admin_app/</code>, React Native; includes API, screens, services, flows, and navigation.</li>
+        <li><strong>Superadmin:</strong> <code>superadmin/</code>, Angular; guarded console routes, platform APIs, shared operations UI and account directory.</li>
+        <li><strong>Backend:</strong> <code>backend/</code> provides platform services and the Superadmin console API.</li>
+      </ul>
+      <p class="small">This UI change only touches the Angular Superadmin; the mobile apps and Backend were left unchanged.</p>
+    </article>
+    <article class="card">
+      <h2>Theme changes made</h2>
+      <ul>
+        <li>App Registrations app marks now use the existing Superadmin icon set: pulse for Energy Hub and tool for Service Admin. App-logo image elements were removed from its cards, filters and summary metrics.</li>
+        <li>Shared page headers now use the registrations page's blue-tinted surface, border, radius and shadow tokens.</li>
+        <li>Global light-mode surfaces now have clearer contrast: cool blue-gray page canvas, white cards, consistent blue-gray borders/shadows, and shared table-header/form-control treatments.</li>
+        <li>Profile and Notifications headings were aligned to that shared header treatment.</li>
+        <li>Settings heading decoration and oversized hard-coded button glow were removed; button colors now use theme variables, and its grid avoids narrow-screen overflow.</li>
+        <li>Profile avatar fallback styling was corrected to remain legible on the light surface.</li>
+      </ul>
+      <p class="note"><strong>Image handling:</strong> no images were added. Real profile photos and Gravity Hub brand marks remain because they are user/brand content, not decorative app icons. Registration icon assets were not deleted from disk because other clients or code may consume them.</p>
+    </article>
+  </section>
+
+  <section>
+    <h2>Superadmin route-by-route status</h2>
+    <p>Theme status describes code alignment with App Registrations. The screenshots and responsive limitations below record the earlier UI pass. A later data audit replaced the OperationsService business samples with authenticated database reads or explicit not-connected states; the latest data-source status is summarized separately below. Database-backed display does not mean that workflow changes are persisted.</p>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>Page / route</th><th>Theme</th><th>Functionality and data status</th><th>Browser checks and screenshots</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Dashboard · <code>/dashboard</code></td><td><span class="status passed">Aligned</span></td><td>Operational metrics now use database-backed data; unavailable sources display explicit empty/not-connected states. Workflow edits remain session-only.</td><td>Previous desktop screenshots; latest data-state rendering not browser-verified. Tablet/390px remain unverified. <a href="./ui-audit/before/dashboard-desktop.jpg">Before</a> · <a href="./ui-audit/after/dashboard-desktop.jpg">After</a></td></tr>
+          <tr><td>Analytics · <code>/analytics</code></td><td><span class="status passed">Reference</span></td><td>Aggregates live database-backed operation records. Not-connected domains are excluded rather than filled with sample values.</td><td>Previous desktop screenshots; latest data-state rendering not browser-verified. Tablet/390px remain unverified. <a href="./ui-audit/before/analytics-desktop.jpg">Before</a> · <a href="./ui-audit/after/analytics-desktop.jpg">After</a></td></tr>
+          <tr><td>Profile · <code>/profile</code></td><td><span class="status passed">Aligned</span></td><td>Profile, avatar, security and preference panels are implemented; actual save/API coverage depends on the individual action.</td><td>1280px desktop screenshot captured; tablet/390px not verified (browser viewport fixed at 1024px). Profile Setup was not exercised with a dedicated setup-required account. <a href="./ui-audit/before/profile-desktop.jpg">Before</a> · <a href="./ui-audit/after/profile-desktop.jpg">After</a></td></tr>
+          <tr><td>Notifications · <code>/notifications</code></td><td><span class="status passed">Aligned</span></td><td>Audit-feed search, filters, read state, refresh and message expansion use the notifications service.</td><td>1280px desktop screenshot captured; tablet/390px not verified (browser viewport fixed at 1024px). Search and Security/Inbox filters exercised; read-state mutation not tested. <a href="./ui-audit/before/notifications-desktop.jpg">Before</a> · <a href="./ui-audit/after/notifications-desktop.jpg">After</a></td></tr>
+          <tr><td>Live Monitor · <code>/livemonitor</code></td><td><span class="status passed">Aligned</span></td><td>Reads live jobs, partner counts, and earnings where available; no synthetic revenue is generated.</td><td>Previous desktop screenshots; latest data-state rendering not browser-verified. <a href="./ui-audit/before/live-monitor-desktop.jpg">Before</a> · <a href="./ui-audit/after/live-monitor-desktop.jpg">After</a></td></tr>
+          <tr><td>Jobs · <code>/jobs</code></td><td><span class="status passed">Aligned</span></td><td>Search, filters, and sorting use live jobs; assignment/workflow/notes edits are session-only and not persisted.</td><td>Previous desktop screenshots; latest database-backed state not browser-verified. <a href="./ui-audit/before/jobs-desktop.jpg">Before</a> · <a href="./ui-audit/after/jobs-desktop.jpg">After</a></td></tr>
+          <tr><td>Repair Center · <code>/repair</code></td><td><span class="status passed">Aligned</span></td><td>Reads live repair tickets; workflow transitions are not connected.</td><td>Previous desktop screenshots; latest data-state rendering not browser-verified. <a href="./ui-audit/before/repair-desktop.jpg">Before</a> · <a href="./ui-audit/after/repair-desktop.jpg">After</a></td></tr>
+          <tr><td>Projects · <code>/projects</code></td><td><span class="status passed">Aligned</span></td><td>Reads live project requests; production updates are not connected.</td><td>Previous desktop screenshots; latest data-state rendering not browser-verified. <a href="./ui-audit/before/projects-desktop.jpg">Before</a> · <a href="./ui-audit/after/projects-desktop.jpg">After</a></td></tr>
+          <tr><td>Inventory · <code>/inventory</code></td><td><span class="status passed">Aligned</span></td><td>Reads live inventory items; no synthetic stock rows are added.</td><td>Previous desktop screenshots; latest data-state rendering not browser-verified. <a href="./ui-audit/before/inventory-desktop.jpg">Before</a> · <a href="./ui-audit/after/inventory-desktop.jpg">After</a></td></tr>
+          <tr><td>Partner Verification · <code>/verification</code></td><td><span class="status passed">Aligned</span></td><td>Shows submitted applications from the live database. Review actions are not connected; current source contains no submitted/pending/under-review records.</td><td>Previous desktop screenshots; latest data-state rendering not browser-verified.</td></tr>
+          <tr><td>Disputes · <code>/disputes</code></td><td><span class="status passed">Aligned</span></td><td>No connected source table/API; displays an explicit not-connected state instead of sample records.</td><td>Previous desktop screenshots; latest data-state rendering not browser-verified.</td></tr>
+          <tr><td>App Registrations · <code>/directory</code></td><td><span class="status passed">Reference aligned</span></td><td>Live registration API, app filters, search, pagination, refresh and profile navigation.</td><td>1280px desktop screenshot captured; tablet/390px not verified (browser viewport fixed at 1024px). Search and app filter exercised. <a href="./ui-audit/before/app-registrations-desktop.jpg">Before</a> · <a href="./ui-audit/after/app-registrations-desktop.jpg">After</a></td></tr>
+          <tr><td>Registration Profile · <code>/directory/:id</code></td><td><span class="status passed">Aligned</span></td><td>Profile/detail view is routed from live registrations; verify each detail endpoint and empty/error case with backend fixtures.</td><td>1280px desktop screenshot captured; tablet/390px not verified (browser viewport fixed at 1024px). <a href="./ui-audit/before/registration-profile-desktop.jpg">Before</a> · <a href="./ui-audit/after/registration-profile-desktop.jpg">After</a></td></tr>
+          <tr><td>Companies · <code>/companies</code></td><td><span class="status passed">Aligned</span></td><td>Reads live company records; earnings totals are computed from connected source records.</td><td>Previous desktop screenshots; latest data-state rendering not browser-verified. <a href="./ui-audit/before/companies-desktop.jpg">Before</a> · <a href="./ui-audit/after/companies-desktop.jpg">After</a></td></tr>
+          <tr><td>AMC Contracts · <code>/amc</code></td><td><span class="status passed">Aligned</span></td><td>Reads live AMC contracts; renewal status is calculated from their database dates.</td><td>Previous desktop screenshots; latest data-state rendering not browser-verified. <a href="./ui-audit/before/amc-desktop.jpg">Before</a> · <a href="./ui-audit/after/amc-desktop.jpg">After</a></td></tr>
+          <tr><td>Finance &amp; Payouts · <code>/finance</code></td><td><span class="status passed">Aligned</span></td><td>Displays live partner earnings. Payout status changes are not connected to a backend workflow.</td><td>Previous desktop screenshots; payment changes were not tested. <a href="./ui-audit/before/finance-desktop.jpg">Before</a> · <a href="./ui-audit/after/finance-desktop.jpg">After</a></td></tr>
+          <tr><td>Invoices · <code>/invoices</code></td><td><span class="status passed">Aligned</span></td><td>No connected invoice source; displays an explicit not-connected state instead of sample records.</td><td>Previous desktop screenshots; latest data-state rendering not browser-verified.</td></tr>
+          <tr><td>Customer Panel Control · <code>/modules/customer-panel</code></td><td><span class="status passed">Aligned</span></td><td>Contains descriptive code-defined module metadata; it is not backed by a runtime settings endpoint.</td><td>Previous desktop screenshots; latest metadata state not browser-verified.</td></tr>
+          <tr><td>Partner App Control · <code>/modules/partner-app</code></td><td><span class="status passed">Aligned</span></td><td>Partner-role counts are database aggregates; flow descriptions are code-defined and not runtime controls.</td><td>Previous desktop screenshots; latest database-backed state not browser-verified.</td></tr>
+          <tr><td>Users &amp; Roles · <code>/modules/users</code></td><td><span class="status passed">Aligned</span></td><td>API-backed user, role permission, user access and account actions; auth/permission guards apply.</td><td>1280px desktop screenshot captured; tablet/390px not verified (browser viewport fixed at 1024px). High-impact account actions were not activated. <a href="./ui-audit/before/users-desktop.jpg">Before</a> · <a href="./ui-audit/after/users-roles-desktop.jpg">After</a></td></tr>
+          <tr><td>Activity Log · <code>/modules/activity</code></td><td><span class="status passed">Aligned</span></td><td>Admin activity feed uses the console API/service.</td><td>1280px desktop screenshot captured; tablet/390px not verified (browser viewport fixed at 1024px). <a href="./ui-audit/before/activity-desktop.jpg">Before</a> · <a href="./ui-audit/after/activity-log-desktop.jpg">After</a></td></tr>
+          <tr><td>Settings · <code>/modules/settings</code></td><td><span class="status passed">Aligned</span></td><td>Important blocker: component state is local; inputs are not bound to edits and save explicitly has a backend-persistence TODO.</td><td>1280px desktop screenshot captured; tablet/390px not verified (browser viewport fixed at 1024px). Persistence/validation is incomplete. <a href="./ui-audit/before/settings-desktop.jpg">Before</a> · <a href="./ui-audit/after/settings-desktop.jpg">After</a></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Current data and storage audit</h2>
+    <p>The configured database is PostgreSQL <code>energy_hub</code>. Superadmin accounts, role permissions, and audit history are stored in <code>superadmin.console_state</code> as a validated JSONB state document; the legacy JSON file remains only as a rollback backup. Operational page reads are authenticated and checked against the corresponding Superadmin page permission.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Page data</th><th>Database source</th><th>Last verified rows</th></tr></thead>
+        <tbody>
+          <tr><td>Jobs</td><td><code>energy_provider.jobs</code></td><td>69</td></tr>
+          <tr><td>Partners</td><td><code>energy_provider.users</code> (partner roles only)</td><td>11 partners</td></tr>
+          <tr><td>Partner applications</td><td><code>energy_provider.partner_applications</code></td><td>14 total; no submitted/pending/under-review rows</td></tr>
+          <tr><td>Inventory</td><td><code>energy_provider.inventory_items</code></td><td>3</td></tr>
+          <tr><td>Partner earnings</td><td><code>energy_provider.earnings</code></td><td>21</td></tr>
+          <tr><td>Companies</td><td><code>public.companies</code></td><td>635</td></tr>
+          <tr><td>AMC contracts</td><td><code>public.amc_contracts</code></td><td>3</td></tr>
+          <tr><td>Repair tickets</td><td><code>public.repair_tickets</code></td><td>52</td></tr>
+          <tr><td>Project requests</td><td><code>public.project_requests</code></td><td>4</td></tr>
+          <tr><td>Invoices and disputes</td><td>No connected source table/API</td><td>Not connected</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="note">These are counts from the last read-only database check and can change as the live database changes. Hard-coded operational sample rows and synthetic chart values were removed. Code-defined labels and flow descriptions are configuration metadata, not business records. Jobs edits remain session-only; finance, verification, repair, project, invoice, and dispute write workflows are not connected. Do not treat displayed data as evidence that these mutations persist.</p>
+  </section>
+
+  <section class="grid">
+    <article class="card">
+      <h2>Other Superadmin routes</h2>
+      <ul>
+        <li><code>/auth/login</code>, <code>/auth/register</code>, <code>/auth/forgot-password</code>: authentication flows use the separate auth layout, not the admin sidebar.</li>
+        <li><code>/session/impersonate</code>: launch/exchange route; full generated-tab token exchange was a previously documented browser-only verification gap and was not retested here.</li>
+        <li>Admin pages are protected by authentication and page-level permission guards; Notifications is Superadmin-only.</li>
+      </ul>
+    </article>
+    <article class="card">
+      <h2>Items still requiring work</h2>
+      <ul>
+        <li>Implement authorized, audited write endpoints for operational workflows before enabling persisted job assignment, verification, payout, repair, or production changes.</li>
+        <li>Implement Settings field binding, validation, API persistence, and clear success/failure states.</li>
+        <li>Complete backend-backed verification, dispute resolution, invoice, finance, inventory, company, AMC, project, repair, and app-control workflows.</li>
+        <li>Repeat responsive browser verification at 768px and 390px using a browser that honors viewport emulation, and exercise remaining module-specific interactions with authorized test accounts.</li>
+        <li>Complete impersonation exchange in its generated tab and Profile Setup with a dedicated setup-required test account; neither was exercised in this pass.</li>
+        <li>Review the React Native client screens separately if the request expands to their visual design; no mobile UI changes were made here.</li>
+      </ul>
+    </article>
+  </section>
+
+  <section class="card">
+    <h2>Verification executed for this change</h2>
+    <ul>
+      <li><strong>Production build:</strong> passed; initial chunk 467.50 kB. Warning remains: <code>profile-page.scss</code> is 12.03 kB, 34 bytes over its 12.00 kB component-style budget.</li>
+      <li><strong>Angular unit tests:</strong> passed, 12 test files and 39 tests.</li>
+      <li><strong>Superadmin backend tests:</strong> passed, 15 tests.</li>
+      <li><strong>TypeScript:</strong> <code>tsc -p tsconfig.app.json --noEmit</code> passed.</li>
+      <li><strong>Browser route and responsive verification:</strong> all 22 admin route patterns were opened during the earlier UI pass at the available desktop viewport. The latest database-backed states have not been opened and visually rechecked. The integrated browser did not actually resize its CSS viewport for tablet/mobile requests; 768px and 390px responsive behavior remains unverified. Browser console/network logs, every module-specific modal/state, and high-impact CRUD actions were not exhaustively audited.</li>
+      <li><strong>Lint:</strong> no Superadmin lint script is defined in its package manifest.</li>
+    </ul>
+    <p class="note"><strong>Release assessment:</strong> the UI theme changes compile, automated checks pass, and all admin routes have earlier desktop browser screenshots. This does not establish production readiness: true tablet/mobile browser verification is blocked by the integrated browser viewport limitation, the latest database-backed states have not been rechecked in the browser, Settings persistence is unfinished, several operational write workflows are not connected, critical impersonation exchange and Profile Setup with a dedicated setup-required account remain unverified, and not every destructive or high-impact workflow was exercised.</p>
+  </section>
+
+  <section class="card">
+    <h2>Files changed in the UI-standardization pass</h2>
+    <ul>
+      <li><a href="./src/app/features/admin/admin-layout.html">admin-layout.html</a> and <a href="./src/app/features/admin/admin-layout.ts">admin-layout.ts</a> (sidebar group navigation).</li>
+      <li><a href="./src/styles.scss">styles.scss</a>, <a href="./src/styles/_operations.scss">_operations.scss</a>, <a href="./src/styles/_dashboard.scss">_dashboard.scss</a>, and <a href="./src/styles/_module-pages.scss">_module-pages.scss</a> (shared theme and layout).</li>
+      <li><a href="./src/app/features/admin/pages/directory/directory-page.html">directory-page.html</a>, <a href="./src/app/features/admin/pages/directory/directory-page.scss">directory-page.scss</a>, and <a href="./src/app/features/admin/pages/directory/directory-page.ts">directory-page.ts</a>.</li>
+      <li><a href="./src/app/features/admin/pages/activity/activity-page.scss">activity-page.scss</a>, <a href="./src/app/features/admin/pages/users/users-page.scss">users-page.scss</a>, <a href="./src/app/features/admin/pages/settings/settings-page.scss">settings-page.scss</a>, <a href="./src/app/features/admin/pages/profile/profile-page.scss">profile-page.scss</a>, and <a href="./src/app/features/admin/pages/registration-profile/registration-profile-page.scss">registration-profile-page.scss</a>.</li>
+      <li><a href="./src/app/features/admin/pages/notifications/notifications-page.scss">notifications-page.scss</a> and <a href="./PROJECT_UI_AUDIT_REPORT.html">PROJECT_UI_AUDIT_REPORT.html</a> (this report).</li>
+      <li>Before/after desktop screenshots for every listed route are stored under <a href="./ui-audit/before/">ui-audit/before/</a> and <a href="./ui-audit/after/">ui-audit/after/</a> as JPEG files. Inventory was not renamed or omitted; the route table links the corresponding evidence.</li>
+    </ul>
+    <h3>Later live-data and storage update</h3>
+    <ul>
+      <li><code>backend/src/apps/superadmin/console-api/infrastructure/postgres-store.ts</code> and the Superadmin console startup now persist admin state in PostgreSQL, importing the legacy JSON state once and retaining that file as backup.</li>
+      <li><code>backend/src/apps/superadmin/console-api/services/operations-directory.js</code>, <code>http/routes.ts</code>, and related API wiring read live source records with authentication and page-permission checks.</li>
+      <li><code>superadmin/src/app/core/services/operations.service.ts</code> and the operational page views now consume those records or show explicit not-connected states. Finance, verification, repair, and project views no longer present local-only actions as persisted backend workflows.</li>
+      <li>This report was updated to replace outdated sample-data claims with the current source and verification status.</li>
+    </ul>
+    <p class="small">Other dirty files already present in the shared repository, including Backend/provider and mobile-client changes, were preserved and not staged or committed.</p>
+  </section>
+
+  <footer>
+    Audit based on Angular routes, templates, styles, services, package manifests, authorized read-only database queries, and automated test/build output. Functionality with no connected source or write workflow should not be treated as production-ready solely because the UI is present.
+  </footer>
+</main>
+</body>
+</html>

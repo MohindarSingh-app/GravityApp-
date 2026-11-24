@@ -12,11 +12,33 @@ test('Superadmin console shares the main API process without shadowing mobile au
   const superadmin = createSuperadminConsole({
     dataFile: path.join(directory, 'access-control.json'),
   });
-  await superadmin.initialize({
-    email: 'root@example.com',
-    name: 'Root User',
-    password: 'Gravityhub-local-password-123',
-  });
+  const previousEnvironment = {
+    nodeEnv: process.env.NODE_ENV,
+    enableDemo: process.env.ENABLE_LOCAL_DEMO_LOGIN,
+    demoEmail: process.env.LOCAL_DEMO_EMAIL,
+    demoPassword: process.env.LOCAL_DEMO_PASSWORD,
+  };
+  process.env.NODE_ENV = 'development';
+  process.env.ENABLE_LOCAL_DEMO_LOGIN = 'true';
+  process.env.LOCAL_DEMO_EMAIL = 'demo-admin@localhost.test';
+  process.env.LOCAL_DEMO_PASSWORD = 'admin@123';
+  try {
+    await superadmin.initialize({
+      email: 'root@example.com',
+      name: 'Root User',
+      password: 'Gravityhub-local-password-123',
+    });
+  } finally {
+    for (const [key, value] of Object.entries({
+      NODE_ENV: previousEnvironment.nodeEnv,
+      ENABLE_LOCAL_DEMO_LOGIN: previousEnvironment.enableDemo,
+      LOCAL_DEMO_EMAIL: previousEnvironment.demoEmail,
+      LOCAL_DEMO_PASSWORD: previousEnvironment.demoPassword,
+    })) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  }
 
   const app = express();
   app.use(express.json());
@@ -38,7 +60,24 @@ test('Superadmin console shares the main API process without shadowing mobile au
     assert.deepEqual(await mobileLogin.json(), { module: 'mobile-service' });
 
     const demoInfo = await fetch(`${baseUrl}/api/superadmin/console/auth/local-demo`);
-    assert.deepEqual(await demoInfo.json(), { enabled: false });
+    assert.deepEqual(await demoInfo.json(), {
+      enabled: true,
+      credentials: {
+        email: 'demo-admin@localhost.test',
+        password: 'admin@123',
+      },
+    });
+
+    const demoLogin = await fetch(`${baseUrl}/api/superadmin/console/auth/login`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        email: 'demo-admin@localhost.test',
+        password: 'admin@123',
+      }),
+    });
+    assert.equal(demoLogin.status, 200);
+    assert.equal((await demoLogin.json()).user.role, 'superadmin');
 
     const login = await fetch(`${baseUrl}/api/superadmin/console/auth/login`, {
       method: 'POST',
@@ -49,20 +88,21 @@ test('Superadmin console shares the main API process without shadowing mobile au
       }),
     });
     assert.equal(login.status, 200);
-    const cookie = login.headers.get('set-cookie')?.split(';')[0];
-    assert.ok(cookie?.startsWith('eh_session='));
+    const loginResult = await login.json();
+    assert.ok(typeof loginResult.sessionToken === 'string');
+    const token = loginResult.sessionToken;
 
     const session = await fetch(`${baseUrl}/api/superadmin/console/auth/me`, {
-      headers: { cookie },
+      headers: { authorization: `Bearer ${token}` },
     });
     assert.equal(session.status, 200);
     assert.equal((await session.json()).user.email, 'root@example.com');
 
     const users = await fetch(`${baseUrl}/api/superadmin/console/admin/users`, {
-      headers: { cookie },
+      headers: { authorization: `Bearer ${token}` },
     });
     assert.equal(users.status, 200);
-    assert.equal((await users.json()).users.length, 1);
+    assert.equal((await users.json()).users.length, 2);
   } finally {
     await new Promise((resolve, reject) => {
       server.close((error) => error ? reject(error) : resolve());

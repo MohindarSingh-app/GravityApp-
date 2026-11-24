@@ -172,6 +172,17 @@ const run = async () => {
   const checkin = await request('POST', `/jobs/${jobId}/workflow/check-in`, { token });
   check('check-in succeeds', checkin.status === 200, checkin.body);
 
+  const locationUpdate = await request('POST', `/jobs/${jobId}/workflow/location`, {
+    token,
+    body: { latitude: 18.5204, longitude: 73.8567 },
+  });
+  check('active job accepts a valid live location', locationUpdate.status === 200, locationUpdate.body);
+  const invalidLocation = await request('POST', `/jobs/${jobId}/workflow/location`, {
+    token,
+    body: { latitude: 91, longitude: 73.8567 },
+  });
+  check('live location rejects invalid coordinates', invalidLocation.status === 400, invalidLocation.body);
+
   const diagnosis = await request('POST', `/jobs/${jobId}/workflow/diagnosis`, {
     token,
     body: { findings: 'Phase fault', issueTags: ['Overcurrent'] },

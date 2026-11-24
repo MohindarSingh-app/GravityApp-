@@ -1,6 +1,5 @@
 import { randomUUID } from 'node:crypto';
 import {
-  hasPermission,
   ACTIONS,
   PAGES,
   type PageKey,
@@ -20,11 +19,24 @@ export class AccessControlService {
 
   async sessionUser(user: StoredUser): Promise<SessionUser> {
     const matrix = await this.store.getPermissions();
+    if (!user.userCode) throw new Error('The user reference code is unavailable.');
     return {
       id: user.id,
+      userCode: user.userCode,
       name: user.name,
       email: user.email,
+      phone: user.phone ?? null,
       role: user.role,
+      profileSetupRequired: user.role === 'admin' && !user.profileCompletedAt,
+      avatarUrl: await this.store.hasAvatar(user.id)
+        ? `/api/superadmin/console/auth/profile/avatar?v=${encodeURIComponent(user.updatedAt)}`
+        : null,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
+      accessMode: user.permissions ? 'custom' : 'role',
+      permissionsAssignedBy: user.permissions && user.permissionsAssignedBy
+        ? { name: user.permissionsAssignedBy.name, email: user.permissionsAssignedBy.email }
+        : null,
       avatarInitials: user.name
         .split(/\s+/)
         .filter(Boolean)
@@ -32,15 +44,12 @@ export class AccessControlService {
         .map((part) => part[0] ?? '')
         .join('')
         .toUpperCase(),
-      permissions: user.role === 'superadmin'
-        ? matrix.superadmin
-        : user.permissions ?? matrix[user.role],
+      permissions: user.permissions ?? matrix[user.role],
     };
   }
 
   async can(user: StoredUser, page: PageKey, action: PermissionAction): Promise<boolean> {
     const matrix = await this.store.getPermissions();
-    if (user.role === 'superadmin') return hasPermission(user.role, matrix, page, action);
     return (user.permissions ?? matrix[user.role])[page][action];
   }
 
@@ -66,10 +75,8 @@ export class AccessControlService {
     if (input.role === 'superadmin' && actor.role !== 'superadmin') {
       throw new InputError('Only a superadmin can create another superadmin.');
     }
-    if (actor.role !== 'superadmin') {
-      const matrix = await this.store.getPermissions();
-      this.assertWithinActorPermissions(matrix[input.role], actor, matrix);
-    }
+    const matrix = await this.store.getPermissions();
+    this.assertWithinActorPermissions(matrix[input.role], actor, matrix);
 
     const credentials = hashPassword(input.password);
     const now = new Date().toISOString();
@@ -77,6 +84,8 @@ export class AccessControlService {
       id: randomUUID(),
       name,
       email,
+      phone: null,
+      profileCompletedAt: input.role === 'admin' ? null : now,
       role: input.role,
       disabled: false,
       passwordSalt: credentials.salt,
@@ -84,8 +93,7 @@ export class AccessControlService {
       createdAt: now,
       updatedAt: now,
     };
-    await this.store.addUser(user, actor);
-    return user;
+    return this.store.addUser(user, actor);
   }
 
   async updateUser(
@@ -98,6 +106,7 @@ export class AccessControlService {
     if (existing.role === 'superadmin') {
       throw new InputError('Superadmin accounts cannot be changed here.');
     }
+
     if (existing.id === actor.id && input.role !== existing.role) {
       throw new InputError('You cannot change your own role.');
     }
@@ -107,13 +116,55 @@ export class AccessControlService {
     if (input.role === 'superadmin' && actor.role !== 'superadmin') {
       throw new InputError('Only a superadmin can assign the superadmin role.');
     }
-    if (actor.role !== 'superadmin' && input.role !== existing.role) {
+    if (input.role !== existing.role) {
       const matrix = await this.store.getPermissions();
       const targetPermissions = existing.permissions ?? matrix[input.role];
       this.assertWithinActorPermissions(targetPermissions, actor, matrix);
     }
 
     const updated = await this.store.updateUser(id, input, actor);
+    if (!updated) throw new NotFoundError('User not found.');
+    return updated;
+  }
+
+  async deleteUser(id: string, actor: StoredUser): Promise<void> {
+    if (actor.role !== 'superadmin') {
+      throw new InputError('Only a superadmin can delete user accounts.');
+    }
+    if (id === actor.id) {
+      throw new InputError('You cannot delete your own account.');
+    }
+    const existing = await this.store.getUserById(id);
+    if (!existing) throw new NotFoundError('User not found.');
+    if (existing.role === 'superadmin') {
+      throw new InputError('Superadmin accounts cannot be deleted here.');
+    }
+    if (!(await this.store.deleteUser(id, actor))) throw new NotFoundError('User not found.');
+  }
+
+  async updateProfile(
+    user: StoredUser,
+    input: { name: string; phone: string | null; completeSetup?: boolean },
+  ): Promise<StoredUser> {
+    const name = input.name.trim();
+    if (name.length < 2 || name.length > 100) {
+      throw new InputError('Name must be between 2 and 100 characters.');
+    }
+    const phone = input.phone?.trim() || null;
+    if (phone && (phone.length < 6 || phone.length > 32 || !/^[+()\d.\-\s]+$/.test(phone))) {
+      throw new InputError('Enter a valid phone number or leave it blank.');
+    }
+    if (input.completeSetup && (user.role !== 'admin' || !phone)) {
+      throw new InputError('Admin profile setup requires a valid contact number.');
+    }
+    if (input.completeSetup && !(await this.store.hasAvatar(user.id))) {
+      throw new InputError('Add a profile picture to complete admin profile setup.');
+    }
+    const updated = await this.store.updateProfile(
+      user.id,
+      { name, phone, completeSetup: input.completeSetup },
+      user,
+    );
     if (!updated) throw new NotFoundError('User not found.');
     return updated;
   }
@@ -126,6 +177,8 @@ export class AccessControlService {
     if (role === 'superadmin') {
       throw new InputError('Superadmin permissions are fixed and cannot be changed.');
     }
+    const matrix = await this.store.getPermissions();
+    this.assertWithinActorPermissions(permissions, actor, matrix);
     await this.store.updateRolePermissions(role, permissions, actor);
   }
 
@@ -136,9 +189,10 @@ export class AccessControlService {
   ): Promise<StoredUser> {
     const user = await this.store.getUserById(id);
     if (!user) throw new NotFoundError('User not found.');
-    if (user.role === 'superadmin') {
-      throw new InputError('Superadmin access is fixed and cannot be changed.');
-    }
+    if (user.id === actor.id) throw new InputError('You cannot change your own page access.');
+
+    const matrix = await this.store.getPermissions();
+    this.assertWithinActorPermissions(permissions ?? matrix[user.role], actor, matrix);
 
     const updated = await this.store.updateUserPermissions(id, permissions, actor);
     if (!updated) throw new NotFoundError('User not found.');

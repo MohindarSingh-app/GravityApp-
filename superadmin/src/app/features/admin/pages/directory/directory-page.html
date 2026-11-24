@@ -1,0 +1,212 @@
+<section class="page-head directory-hero">
+  <div class="hero-copy">
+    <div class="hero-kicker"><span class="hero-dot"></span> PLATFORM DIRECTORY <span>·</span> CONNECTED APPS</div>
+    <h1>App registrations</h1>
+    <p>Customer and partner accounts, their service activity, and key profile details in one place.</p>
+    <div class="hero-highlights">
+      <span>✓ Unique registration IDs</span><span>✓ Service and account insights</span>
+    </div>
+  </div>
+  <button class="btn primary refresh-button" type="button" (click)="load()" [disabled]="loading()">
+    <svg [class.spinning]="loading()" aria-hidden="true" viewBox="0 0 24 24" fill="none">
+      <path d="M20 7v5h-5M4 17v-5h5M5.6 9a7 7 0 0 1 11.6-2L20 12M4 12l2.8 5a7 7 0 0 0 11.6-2" />
+    </svg>
+    {{ loading() ? 'Refreshing…' : 'Refresh list' }}
+  </button>
+</section>
+
+<div class="stat-row registration-stats" aria-label="Registration summary">
+  <article class="stat-card" data-tone="total">
+    <div class="stat-top">
+      <span class="stat-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M16 20v-1.6a3.4 3.4 0 0 0-3.4-3.4H6.4A3.4 3.4 0 0 0 3 18.4V20m16 0v-1.6a3.4 3.4 0 0 0-2.4-3.25M9.5 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm8-6.8a4 4 0 0 1 0 7.6"/></svg>
+      </span>
+      <span class="stat-trend">All apps</span>
+    </div>
+    <div class="stat-num">{{ registrations().length }}</div>
+    <div class="stat-lbl">Total registrations</div>
+    <small class="stat-context">Accounts across both platforms</small>
+  </article>
+  <article class="stat-card" data-tone="energy">
+    <div class="stat-top">
+      <span class="stat-icon" aria-hidden="true">
+        <span class="menu-icon directory-app-icon" data-icon="pulse"></span>
+      </span>
+      <span class="stat-trend">Partners</span>
+    </div>
+    <div class="stat-num">{{ energyHubCount() }}</div>
+    <div class="stat-lbl">Energy Hub</div>
+    <small class="stat-context">Service and marketplace accounts</small>
+  </article>
+  <article class="stat-card" data-tone="service">
+    <div class="stat-top">
+      <span class="stat-icon" aria-hidden="true">
+        <span class="menu-icon directory-app-icon" data-icon="tool"></span>
+      </span>
+      <span class="stat-trend">Accounts</span>
+    </div>
+    <div class="stat-num">{{ serviceAdminCount() }}</div>
+    <div class="stat-lbl">Service Admin</div>
+    <small class="stat-context">Customer and service accounts</small>
+  </article>
+  <article class="stat-card" data-tone="online">
+    <div class="stat-top">
+      <span class="stat-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M5 12.5 9.2 17 19 7"/></svg>
+      </span>
+      <span class="stat-trend up">Live now</span>
+    </div>
+    <div class="stat-num">{{ onlineCount() }}</div>
+    <div class="stat-lbl">Partners online</div>
+    <small class="stat-context">{{ onlineRate() }}% of Energy Hub partners</small>
+  </article>
+</div>
+
+<section class="panel directory-controls" aria-label="Search and filter registrations">
+  <div class="panel-head controls-heading">
+    <div><span class="section-eyebrow">Explore accounts</span><div class="panel-title">Registration directory</div></div>
+    <span class="result-count">{{ filtered().length }} {{ filtered().length === 1 ? 'result' : 'results' }}</span>
+  </div>
+  <div class="panel-body controls-body">
+    <div class="directory-toolbar">
+      <div class="tabs app-tabs" role="tablist" aria-label="Filter registrations by app">
+        <button class="tab" role="tab" type="button" [class.active]="activeFilter() === 'all'"
+          [attr.aria-selected]="activeFilter() === 'all'" (click)="setFilter('all')">
+          All apps <span class="count">{{ registrations().length }}</span>
+        </button>
+        <button class="tab" role="tab" type="button" [class.active]="activeFilter() === 'energy-hub'"
+          [attr.aria-selected]="activeFilter() === 'energy-hub'" (click)="setFilter('energy-hub')">
+          <span class="menu-icon directory-app-icon" data-icon="pulse" aria-hidden="true"></span>
+          Energy Hub <span class="count">{{ energyHubCount() }}</span>
+        </button>
+        <button class="tab" role="tab" type="button" [class.active]="activeFilter() === 'service-admin'"
+          [attr.aria-selected]="activeFilter() === 'service-admin'" (click)="setFilter('service-admin')">
+          <span class="menu-icon directory-app-icon" data-icon="tool" aria-hidden="true"></span>
+          Service Admin <span class="count">{{ serviceAdminCount() }}</span>
+        </button>
+      </div>
+      <label class="search-box">
+        <svg aria-hidden="true" viewBox="0 0 24 24" fill="none"><circle cx="10.8" cy="10.8" r="6.8" /><path d="m16 16 4.5 4.5" /></svg>
+        <input type="search" [value]="search()" (input)="updateSearch($event)"
+          placeholder="Search name, ID, email or company" aria-label="Search registrations" />
+        @if (search()) {
+          <button type="button" class="clear-search" (click)="clearSearch()" aria-label="Clear search">×</button>
+        }
+      </label>
+    </div>
+  </div>
+</section>
+
+@if (!loading() && !error() && filtered().length) {
+  <div class="registration-pagination" aria-label="Registration list pages">
+    <span>Showing <strong>{{ showingStart() }}–{{ showingEnd() }}</strong> of {{ filtered().length }} registrations</span>
+    <div class="pagination-actions">
+      <button class="btn sm page-button" type="button" (click)="changePage(page() - 1)"
+        [disabled]="page() === 1" aria-label="Previous page">‹</button>
+      <span>Page <strong>{{ page() }}</strong> of {{ pageCount() }}</span>
+      <button class="btn sm page-button" type="button" (click)="changePage(page() + 1)"
+        [disabled]="page() === pageCount()" aria-label="Next page">›</button>
+    </div>
+  </div>
+}
+
+@if (error()) {
+  <section class="panel state-panel error-panel" role="alert">
+    <span class="state-icon">!</span>
+    <div><h2>Registrations could not load</h2><p>{{ error() }}</p></div>
+    <button class="btn primary sm" type="button" (click)="load()">Try again</button>
+  </section>
+}
+
+@if (loading()) {
+  <section class="panel loading-panel" aria-live="polite">
+    <span class="loading-spinner" aria-hidden="true"></span>
+    <p>Loading registrations…</p>
+  </section>
+} @else if (!error()) {
+  @if (filtered().length) {
+    <section class="registration-grid" aria-label="Registered accounts">
+      @for (person of visibleRegistrations(); track person.id) {
+        <article class="panel registration-card" [attr.data-app]="person.app">
+          <div class="app-strip" [attr.data-app]="person.app"></div>
+          <div class="registration-card-body">
+            <div class="identity-row">
+              <div class="registration-avatar" [attr.data-app]="person.app" aria-hidden="true">
+                {{ person.name.charAt(0).toUpperCase() }}
+              </div>
+              <div class="registration-identity">
+                <h2>{{ person.name }}</h2>
+                <p>{{ person.profile.businessName || person.profile.companyName || formatLabel(person.role) }}</p>
+              </div>
+              <span class="badge status-badge" [class.b-g]="person.status === 'approved' || person.status === 'active'"
+                [class.b-y]="person.status !== 'approved' && person.status !== 'active'"
+                [class.b-r]="person.status === 'rejected' || person.status === 'suspended'">
+                {{ formatLabel(person.status) }}
+              </span>
+            </div>
+
+            <div class="registration-badges">
+              <span class="badge app-badge" [class.app-energy]="person.app === 'energy-hub'"
+                [class.app-service]="person.app === 'service-admin'">
+                <span class="menu-icon directory-app-icon" [attr.data-icon]="appIconName(person.app)"
+                  aria-hidden="true"></span>
+                {{ appLabel(person.app) }}
+              </span>
+              <span class="badge b-b">{{ formatLabel(person.role) }}</span>
+              @if (person.profile.busy) {
+                <span class="status-pill warn">On service</span>
+              } @else if (person.profile.online === true) {
+                <span class="status-pill ok">Online now</span>
+              } @else if (person.app === 'energy-hub') {
+                <span class="status-pill muted">Offline</span>
+              }
+            </div>
+
+            <div class="registration-facts">
+              <div><small>Registration ID</small><strong>{{ person.registrationId }}</strong></div>
+              <div><small>Contact</small><strong>{{ person.email || person.phone || 'Not provided' }}</strong></div>
+              <div><small>Registered</small><strong>{{ formatDate(person.registeredAt) }}</strong></div>
+              @if (person.profile.experienceYears) {
+                <div><small>Experience</small><strong>{{ person.profile.experienceYears }} years</strong></div>
+              }
+            </div>
+
+            @if (person.profile.latestService; as service) {
+              <p class="service-summary" [class.is-current]="person.profile.busy">
+                <strong>{{ person.profile.busy ? 'Current' : 'Latest' }}:</strong>
+                {{ service.title }} · {{ formatLabel(service.status) }}@if (service.location) { · {{ service.location }} }
+              </p>
+            }
+
+            <div class="card-footer">
+              <div class="performance-metrics">
+                <div><small>Services</small><strong>{{ person.profile.totalServices }}</strong></div>
+                <div><small>Completed</small><strong>{{ person.profile.completedServices }}</strong></div>
+                @if (person.profile.rating !== null) {
+                  <div class="rating-metric"><small>Rating</small><strong>★ {{ person.profile.rating.toFixed(1) }}</strong></div>
+                }
+                @if (person.profile.totalEarnings !== null) {
+                  <div><small>Total earnings</small><strong>{{ formatCurrency(person.profile.totalEarnings) }}</strong></div>
+                }
+              </div>
+              <a class="btn primary sm profile-button" [routerLink]="['/directory', person.id]">
+                View profile <span aria-hidden="true">→</span>
+              </a>
+            </div>
+          </div>
+        </article>
+      }
+    </section>
+  } @else {
+    <section class="panel state-panel empty-panel">
+      <span class="state-icon">⌕</span>
+      <div>
+        <h2>{{ registrations().length ? 'No matching registrations' : 'No registrations yet' }}</h2>
+        <p>{{ registrations().length ? 'Try another search or clear the selected app filter.' : 'Accounts will appear here after they register in a connected app.' }}</p>
+      </div>
+      @if (registrations().length) {
+        <button class="btn sm clear-filters-button" type="button" (click)="clearFilters()">Clear filters</button>
+      }
+    </section>
+  }
+}

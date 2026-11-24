@@ -12,17 +12,49 @@ export function readSessionCookie(cookieHeader: string | undefined): string | un
   return pair?.slice(SESSION_COOKIE.length + 1);
 }
 
-export function requireAuth(store: JsonStore, sessions: SessionManager): RequestHandler {
+export function readSessionCredential(
+  cookieHeader: string | undefined,
+  authorizationHeader: string | undefined,
+): { sessionId: string | undefined; source: 'cookie' | 'bearer' } {
+  if (authorizationHeader !== undefined) {
+    const match = /^Bearer ([A-Za-z0-9_-]+)$/.exec(authorizationHeader.trim());
+    return { sessionId: match?.[1], source: 'bearer' };
+  }
+  return { sessionId: readSessionCookie(cookieHeader), source: 'cookie' };
+}
+
+export function requireAuth(
+  store: JsonStore,
+  sessions: SessionManager,
+  access: AccessControlService,
+): RequestHandler {
   return async (request, response, next): Promise<void> => {
-    const sessionId = readSessionCookie(request.headers.cookie);
+    const credential = readSessionCredential(request.headers.cookie, request.headers.authorization);
+    const sessionId = credential.sessionId;
     const session = sessionId ? sessions.get(sessionId) : undefined;
     const user = session ? await store.getUserById(session.userId) : undefined;
-    if (!sessionId || !session || !user || user.disabled) {
+    if (!sessionId || !session || !user || user.disabled ||
+        (session.impersonatedBy && user.role === 'superadmin')) {
       if (sessionId && session) sessions.revoke(sessionId);
       response.status(401).json({ message: 'Authentication required.' });
       return;
     }
-    request.authUser = user;
+    if (session.impersonatedBy) {
+      const actor = await store.getUserById(session.impersonatedBy.id);
+      if (!actor || actor.disabled || actor.role !== 'superadmin' ||
+          !(await access.can(actor, 'users', 'view')) ||
+          !(await access.can(actor, 'users', 'edit'))) {
+        sessions.revoke(sessionId);
+        response.status(401).json({ message: 'The Superadmin panel access session has expired.' });
+        return;
+      }
+      request.authUser = { ...user, impersonatedBy: session.impersonatedBy };
+    } else {
+      request.authUser = user;
+    }
+    request.authSession = session;
+    request.authSessionId = sessionId;
+    request.authSessionSource = credential.source;
     next();
   };
 }

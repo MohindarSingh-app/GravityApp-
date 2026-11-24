@@ -14,7 +14,7 @@ export const PAGES = [
   { key: 'inventory', label: 'Inventory', group: 'Operations' },
   { key: 'verification', label: 'Verification', group: 'Field Partners' },
   { key: 'disputes', label: 'Disputes', group: 'Field Partners' },
-  { key: 'directory', label: 'Partner Directory', group: 'Field Partners' },
+  { key: 'directory', label: 'App Registrations', group: 'Field Partners' },
   { key: 'companies', label: 'Companies', group: 'Business' },
   { key: 'amc', label: 'AMC Contracts', group: 'Business' },
   { key: 'finance', label: 'Finance & Payouts', group: 'Business' },
@@ -56,7 +56,9 @@ export function createDefaultPermissionMatrix(): PermissionMatrix {
   const allPages = PAGES.map(({ key }) => key);
   const allActions = [...ACTIONS];
   const adminPages = allPages.filter((key) => !['users', 'activity'].includes(key));
-  const viewerPages = allPages.filter((key) => !['users', 'activity', 'settings'].includes(key));
+  const viewerPages = allPages.filter((key) =>
+    !['users', 'activity', 'settings', 'directory'].includes(key),
+  );
 
   return {
     superadmin: buildRolePermissions(allPages, allActions),

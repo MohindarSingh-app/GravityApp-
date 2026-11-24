@@ -103,6 +103,21 @@ module.exports = async function acceptanceCases() {
   await JobService.checkIn(partnerA, job.id);
   let current = await JobModel.findById(job.id);
   check('check-in advances the stage', current.stage === 'checked_in');
+  await expectError(
+    'another partner cannot update a job live location',
+    () => JobService.recordLiveLocation(partnerB, job.id, { latitude: 18.52, longitude: 73.85 }),
+    403
+  );
+  await expectError(
+    'live location rejects out-of-range coordinates',
+    () => JobService.recordLiveLocation(partnerA, job.id, { latitude: 91, longitude: 73.85 }),
+    400
+  );
+  const liveLocation = await JobService.recordLiveLocation(partnerA, job.id, {
+    latitude: 18.5204,
+    longitude: 73.8567,
+  });
+  check('checked-in partner can publish a live location', liveLocation.jobId === job.id && !!liveLocation.updatedAt);
   const assignedAfterCheckIn = await JobService.listMyJobs(partnerA);
   check('assigned job exposes the actual check-in time', !!assignedAfterCheckIn.find((item) => item.id === job.id)?.startedAt);
 
@@ -181,6 +196,10 @@ module.exports = async function acceptanceCases() {
     checklist: fullChecklist,
   });
   check('job completes', completion.status === 'completed');
+  check(
+    'completing removes the live location',
+    !(await db.get('SELECT job_id FROM job_live_locations WHERE job_id = ?', [job.id]))
+  );
   check('total bill includes parts and service charge', completion.totalBill === 1620);
   check('platform commission is 10 percent', completion.commission === 162);
   check('payout is the net amount', completion.payoutAmount === 1458);

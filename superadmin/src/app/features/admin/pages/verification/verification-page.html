@@ -1,0 +1,30 @@
+<section class="page-head">
+  <div>
+    <h1>Partner Verification</h1>
+    <p>Submitted applications from the live partner database. Review actions are not connected.</p>
+  </div>
+  <span class="badge b-y">{{ ops.verifications().length }} pending</span>
+</section>
+
+@if (ops.sourceStatus('verification') === 'loading') {
+<div class="panel"><div class="panel-body empty-state">Loading submitted applications…</div></div>
+} @else if (ops.sourceStatus('verification') === 'not-connected') {
+<div class="panel"><div class="panel-body empty-state">No partner application source is connected.</div></div>
+} @else {
+<div class="card-list">
+  @for (v of ops.verifications(); track v.id) {
+  <div class="op-card">
+    <div class="oc-icon">{{ v.name.charAt(0) }}</div>
+    <div class="oc-main">
+      <strong>{{ v.name }} <span class="badge b-b">{{ v.type }}</span></strong>
+      <small>Applied {{ v.appliedAt }} · Documents: {{ v.documents.join(', ') }}</small>
+    </div>
+    <div class="oc-actions"><span class="status-pill info">Read-only</span></div>
+  </div>
+  } @empty {
+  <div class="panel">
+    <div class="panel-body empty-state">No submitted partner applications are pending review.</div>
+  </div>
+  }
+</div>
+}

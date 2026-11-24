@@ -1,0 +1,193 @@
+<section class="page-head analytics-head">
+  <div>
+    <h1>Analytics &amp; Reports</h1>
+    <p>Revenue and activity by date, time, and business category.</p>
+  </div>
+  <span class="sample-badge">
+    <span></span>
+    @if (operations.sourceStatus('analytics') === 'loading') {
+      Loading connected records…
+    } @else if (operations.sourceStatus('analytics') === 'connected') {
+      Database-backed events
+    } @else {
+      Analytics source unavailable
+    }
+  </span>
+</section>
+
+<section class="panel analytics-filters" aria-label="Analytics filters">
+  <div class="panel-head">
+    <div class="panel-title">Explore performance</div>
+    <span class="range-summary">{{ rangeLabel() }}</span>
+  </div>
+  <div class="panel-body">
+    <div class="filter-fields">
+      <label class="filter-field">
+        <span>Time range</span>
+        <select aria-label="Time range" (change)="selectPresetFromEvent($event)">
+          @for (preset of rangePresets; track preset.id) {
+            <option [value]="preset.id" [selected]="selectedPreset() === preset.id">{{ preset.label }}</option>
+          }
+        </select>
+      </label>
+
+      <label class="filter-field">
+        <span>Category</span>
+        <select (change)="selectCategory($event)">
+          @for (category of categoryOptions; track category.id) {
+            <option [value]="category.id" [selected]="selectedCategory() === category.id">{{ categoryOptionLabel(category.id) }}</option>
+          }
+        </select>
+      </label>
+
+      <label class="filter-field">
+        <span>Group by</span>
+        <select (change)="selectGranularity($event)">
+          @for (option of granularityOptions; track option.id) {
+            <option [value]="option.id" [selected]="resolvedGranularity() === option.id" [disabled]="granularityDisabled(option.id)">{{ option.label }}</option>
+          }
+        </select>
+      </label>
+
+      @if (selectedPreset() === 'custom') {
+        <label class="filter-field">
+          <span>From</span>
+          <input type="date" [value]="startDate()" [max]="maxDate" (change)="updateStartDate($event)" />
+        </label>
+
+        <label class="filter-field">
+          <span>To</span>
+          <input type="date" [value]="endDate()" [max]="maxDate" (change)="updateEndDate($event)" />
+        </label>
+      }
+    </div>
+
+    @if (rangeError()) {
+      <p class="filter-error" role="alert">{{ rangeError() }}</p>
+    }
+  </div>
+</section>
+
+<section class="stat-row analytics-kpis" aria-label="Filtered analytics summary">
+  @for (kpi of kpis(); track kpi.label) {
+    <article class="stat-card analytics-kpi">
+      <div class="stat-top"><span class="badge b-b">{{ kpi.icon }}</span></div>
+      <div class="stat-lbl">{{ kpi.label }}</div>
+      <div class="stat-num" [title]="kpi.value">{{ kpi.value }}</div>
+      <div class="stat-trend" [class.up]="kpi.trend === 'up'" [class.down]="kpi.trend === 'down'">
+        {{ kpi.detail }}
+      </div>
+    </article>
+  }
+</section>
+
+@if (report().points.length) {
+  <section class="analytics-charts" aria-label="Filtered analytics charts">
+    <article class="panel analytics-panel">
+      <div class="panel-head chart-heading">
+        <div>
+          <div class="panel-title">Revenue trend</div>
+          <p>{{ rangeLabel() }} · {{ granularityLabel() }} · {{ selectedCategory() === 'all' ? 'all categories' : report().topCategory?.label }}</p>
+        </div>
+        <strong class="chart-total">{{ formatCurrency(report().revenue) }}</strong>
+      </div>
+      <div class="panel-body">
+        <div class="chart-plot" role="img" aria-label="Revenue by selected time bucket"
+          [style.grid-template-columns]="'repeat(' + report().points.length + ', minmax(0, 1fr))'">
+          @for (point of report().points; track point.key; let i = $index) {
+            <div class="chart-column" [title]="pointTitle(point)">
+              <span class="chart-value" [class.chart-value-hidden]="report().points.length > 8">
+                {{ report().points.length <= 8 ? formatCompactCurrency(point.revenue) : '' }}
+              </span>
+              <div class="chart-rail">
+                <span class="chart-fill revenue-fill" [style.height.%]="revenueHeight(point.revenue)"></span>
+              </div>
+              @if (showAxisLabel(i)) {
+                <span class="chart-label">{{ point.label }}</span>
+              }
+            </div>
+          }
+        </div>
+      </div>
+    </article>
+
+    <article class="panel analytics-panel">
+      <div class="panel-head chart-heading">
+        <div>
+          <div class="panel-title">Jobs &amp; orders trend</div>
+          <p>Service, repair, AMC, E-cart, and project activity</p>
+        </div>
+        <strong class="chart-total">{{ report().activity.toLocaleString('en-IN') }}</strong>
+      </div>
+      <div class="panel-body">
+        <div class="chart-plot activity-plot" role="img" aria-label="Jobs and orders by selected time bucket"
+          [style.grid-template-columns]="'repeat(' + report().points.length + ', minmax(0, 1fr))'">
+          @for (point of report().points; track point.key; let i = $index) {
+            <div class="chart-column" [title]="activityPointTitle(point)">
+              <span class="chart-value" [class.chart-value-hidden]="report().points.length > 8">
+                {{ report().points.length <= 8 ? point.activity : '' }}
+              </span>
+              <div class="chart-rail">
+                <span class="chart-fill activity-fill" [style.height.%]="activityHeight(point.activity)"></span>
+              </div>
+              @if (showAxisLabel(i)) {
+                <span class="chart-label">{{ point.label }}</span>
+              }
+            </div>
+          }
+        </div>
+      </div>
+    </article>
+  </section>
+
+  <section class="panel category-panel">
+    <div class="panel-head chart-heading">
+      <div>
+        <div class="panel-title">Category performance</div>
+        <p>Revenue, activity volume, average value, share, and change vs previous period.</p>
+      </div>
+      <strong class="chart-total">{{ report().categories.length }} categories</strong>
+    </div>
+    <div class="analytics-table-wrap">
+      <table class="analytics-table">
+        <thead>
+          <tr>
+            <th>Category</th>
+            <th>Revenue</th>
+            <th>Jobs / orders</th>
+            <th>Average value</th>
+            <th>Revenue share</th>
+            <th>Change</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (category of report().categories; track category.id) {
+            <tr>
+              <td><strong>{{ category.label }}</strong></td>
+              <td>{{ formatCurrency(category.revenue) }}</td>
+              <td>{{ category.activity.toLocaleString('en-IN') }}</td>
+              <td>{{ formatCurrency(category.average) }}</td>
+              <td>
+                <div class="share-cell">
+                  <span class="share-track">
+                    <span [style.width.%]="category.share"></span>
+                  </span>
+                  <strong>{{ category.share.toFixed(1) }}%</strong>
+                </div>
+              </td>
+              <td [class.change-up]="category.change === null || category.change >= 0"
+                [class.change-down]="category.change !== null && category.change < 0">
+                {{ changeLabel(category.change) }}
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </section>
+} @else {
+  <section class="panel analytics-empty" role="status">
+    <strong>No analytics for this range</strong>
+    <p>Choose a valid date range to see revenue and activity details.</p>
+  </section>
+}

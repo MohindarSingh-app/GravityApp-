@@ -1,0 +1,431 @@
+<a class="back-link" routerLink="/directory">← Back to app registrations</a>
+
+@if (loading()) {
+  <section class="profile-state"><span class="spinner"></span><p>Loading registration profile…</p></section>
+} @else if (error()) {
+  <section class="profile-state error" role="alert">
+    <h1>Profile unavailable</h1>
+    <p>{{ error() }}</p>
+    <a class="btn-sm" routerLink="/directory">Return to registrations</a>
+  </section>
+} @else if (details(); as data) {
+  @let person = data.registration;
+  <header class="profile-hero">
+    <div class="hero-identity">
+      @if (data.account.avatarUrl) {
+        <img class="profile-avatar" [src]="data.account.avatarUrl" [alt]="person.name + ' profile photo'" />
+      } @else {
+        <div class="profile-avatar avatar-fallback" aria-hidden="true">{{ person.name.charAt(0).toUpperCase() }}</div>
+      }
+      <div class="hero-copy">
+        <div class="eyebrow">{{ appLabel(person.app) }} registration</div>
+        <div class="hero-title">
+          <h1>{{ person.name }}</h1>
+          <span class="status-pill" [attr.data-status]="person.status">{{ statusLabel(person.status) }}</span>
+          @if (person.profile.online === true) {
+            <span class="status-pill online">Online</span>
+          } @else if (person.profile.busy) {
+            <span class="status-pill busy">On service</span>
+          }
+        </div>
+        <p>{{ person.profile.businessName || person.profile.companyName || statusLabel(person.role) }}</p>
+        <div class="identity-meta">
+          <span>{{ person.registrationId }}</span>
+          <span>{{ person.email || 'Email not provided' }}</span>
+          <span>{{ person.phone || 'Phone not provided' }}</span>
+        </div>
+      </div>
+    </div>
+    <div class="hero-actions">
+      <span class="role-badge">{{ statusLabel(person.role) }}</span>
+      <small>Registered {{ formatDate(person.registeredAt) }}</small>
+    </div>
+  </header>
+
+  <section class="metric-grid" aria-label="Account performance summary">
+    <article class="metric-card">
+      <span>Total services</span>
+      <strong>{{ person.profile.totalServices }}</strong>
+      <small>Recorded across the connected app</small>
+    </article>
+    <article class="metric-card">
+      <span>Completed</span>
+      <strong>{{ person.profile.completedServices }}</strong>
+      <small>{{ completionRate() }}% of recorded services</small>
+    </article>
+    <article class="metric-card">
+      @if (person.app === 'energy-hub') {
+        <span>Partner rating</span>
+        <strong class="rating-value">{{ person.profile.rating === null ? '—' : '★ ' + person.profile.rating.toFixed(1) }}</strong>
+        <small>{{ person.profile.rating === null ? 'No rating saved' : 'Aggregate score; no written reviews stored' }}</small>
+      } @else {
+        <span>Last sign-in</span>
+        <strong class="metric-date">{{ data.account.lastLoginAt ? formatDate(data.account.lastLoginAt) : '—' }}</strong>
+        <small>From the Service Admin account record</small>
+      }
+    </article>
+    <article class="metric-card">
+      @if (data.financialSummary.kind === 'payouts') {
+        <span>Total partner earnings</span>
+        <strong>{{ formatMoney(data.financialSummary.total) }}</strong>
+        <small>{{ data.financialSummary.count }} payout records</small>
+      } @else {
+        <span>Recorded order value</span>
+        <strong>{{ formatMoney(data.financialSummary.total) }}</strong>
+        <small>{{ data.financialSummary.count }} marketplace orders</small>
+      }
+    </article>
+  </section>
+
+  <nav class="profile-tabs" role="tablist" aria-label="Registration profile sections">
+    <button type="button" role="tab" [attr.aria-selected]="activeTab() === 'overview'"
+      [class.active]="activeTab() === 'overview'" (click)="selectTab('overview')">Overview</button>
+    <button type="button" role="tab" [attr.aria-selected]="activeTab() === 'work'"
+      [class.active]="activeTab() === 'work'" (click)="selectTab('work')">
+      {{ person.app === 'energy-hub' ? 'Jobs & work' : 'Service history' }}
+      <span>{{ data.activity.length }}</span>
+    </button>
+    <button type="button" role="tab" [attr.aria-selected]="activeTab() === 'finance'"
+      [class.active]="activeTab() === 'finance'" (click)="selectTab('finance')">
+      {{ person.app === 'energy-hub' ? 'Earnings' : 'Orders & payments' }}
+    </button>
+    <button type="button" role="tab" [attr.aria-selected]="activeTab() === 'account'"
+      [class.active]="activeTab() === 'account'" (click)="selectTab('account')">Account details</button>
+  </nav>
+
+  @if (activeTab() === 'overview') {
+    <section class="overview-grid">
+      <article class="content-card chart-card">
+        <div class="section-heading">
+          <div>
+            <h2>Activity over time</h2>
+            <p>Monthly service activity and recorded {{ person.app === 'energy-hub' ? 'net earnings' : 'order value' }}.</p>
+          </div>
+          <span class="chart-legend"><i></i> Activities</span>
+        </div>
+        @if (data.monthlyActivity.length) {
+          <div class="bar-chart" role="img" aria-label="Monthly activity chart">
+            @for (month of data.monthlyActivity; track month.month) {
+              <div class="bar-column">
+                <strong>{{ month.count }}</strong>
+                <div class="bar-track"><div class="bar-fill" [style.height.%]="countBarHeight(month.count)"></div></div>
+                <small>{{ month.label }}</small>
+              </div>
+            }
+          </div>
+          @if (hasMonthlyAmounts()) {
+            <div class="amount-chart">
+              <h3>{{ person.app === 'energy-hub' ? 'Monthly net earnings' : 'Monthly order value' }}</h3>
+              @for (month of data.monthlyActivity; track month.month) {
+                <div class="amount-row">
+                  <span>{{ month.label }}</span>
+                  <div class="amount-track"><div class="amount-fill" [style.width.%]="(month.amount / maxMonthlyAmount()) * 100"></div></div>
+                  <strong>{{ formatMoney(month.amount) }}</strong>
+                </div>
+              }
+            </div>
+          }
+        } @else {
+          <p class="empty-state">No dated activity is recorded for this account yet.</p>
+        }
+      </article>
+
+      <article class="content-card status-card">
+        <div class="section-heading">
+          <div><h2>Work status</h2><p>All recorded jobs, requests, repairs, projects and contracts.</p></div>
+        </div>
+        @if (data.statusBreakdown.length) {
+          <div class="status-chart">
+            @for (item of data.statusBreakdown; track item.status) {
+              <div class="status-row">
+                <div class="status-label"><span>{{ statusLabel(item.status) }}</span><strong>{{ item.count }}</strong></div>
+                <div class="status-track"><div class="status-fill" [style.width.%]="statusBarWidth(item.count)"></div></div>
+              </div>
+            }
+          </div>
+        } @else {
+          <p class="empty-state">No work records are available.</p>
+        }
+      </article>
+
+      @if (person.app === 'energy-hub') {
+        <article class="content-card current-work-card">
+          <div class="section-heading">
+            <div><h2>Current service</h2><p>Live work and location are available only during an active, checked-in job.</p></div>
+            @if (data.account.currentWork) {
+              <span class="status-pill compact" [attr.data-status]="data.account.currentWork.stage">
+                {{ statusLabel(data.account.currentWork.stage) }}
+              </span>
+            }
+          </div>
+          @if (data.account.currentWork; as work) {
+            <div class="work-facts">
+              <div><span>Current job</span><strong>{{ work.title }}</strong></div>
+              <div><span>Job reference</span><strong>{{ work.reference || 'Not recorded' }}</strong></div>
+              <div><span>Service site</span><strong>{{ work.site || 'Not recorded' }}</strong></div>
+            </div>
+            @if (work.liveLocation; as location) {
+              <div class="recent-row">
+                <span class="activity-dot" aria-hidden="true"></span>
+                <div class="recent-copy">
+                  <strong>Live location · {{ location.latitude.toFixed(5) }}, {{ location.longitude.toFixed(5) }}</strong>
+                  <small>Updated {{ formatDate(work.lastLocationUpdateAt) }}</small>
+                </div>
+                <a class="btn-sm" [href]="mapUrl(location)" target="_blank" rel="noopener noreferrer">Open map</a>
+              </div>
+            } @else if (work.stage === 'accepted') {
+              <p class="empty-state">Location sharing starts after the partner checks in and allows GPS access.</p>
+            } @else {
+              <p class="empty-state">
+                No fresh GPS update is available.
+                @if (work.lastLocationUpdateAt) { Last update: {{ formatDate(work.lastLocationUpdateAt) }}. }
+                Updates require location permission and the partner app to remain open.
+              </p>
+            }
+          } @else {
+            <p class="empty-state">No active job is assigned to this partner.</p>
+          }
+          <p class="data-note">Only the latest location is retained. Sharing pauses when the app is in the background and stops after job completion.</p>
+        </article>
+      }
+
+      <article class="content-card recent-card">
+        <div class="section-heading">
+          <div><h2>Recent activity</h2><p>Latest work recorded for this account.</p></div>
+          <button class="text-button" type="button" (click)="selectTab('work')">View all →</button>
+        </div>
+        @for (item of data.activity.slice(0, 5); track item.id + item.kind) {
+          <div class="recent-row">
+            <span class="activity-dot" [attr.data-kind]="item.kind"></span>
+            <div class="recent-copy">
+              <strong>{{ item.title }}</strong>
+              <small>{{ item.reference || activityLabel(item.kind) }} · {{ formatDate(item.createdAt) }}</small>
+            </div>
+            <span class="status-pill compact" [attr.data-status]="item.status">{{ statusLabel(item.status) }}</span>
+          </div>
+        } @empty {
+          <p class="empty-state">There is no service history to show yet.</p>
+        }
+      </article>
+
+      <article class="content-card rating-card">
+        <div class="section-heading"><div><h2>Profile snapshot</h2><p>Registration and account health.</p></div></div>
+        <dl class="snapshot-list">
+          <div><dt>Registration ID</dt><dd>{{ person.registrationId }}</dd></div>
+          <div><dt>Registered address</dt><dd>{{ person.profile.registeredAddress || 'Not provided' }}</dd></div>
+          <div><dt>Account updated</dt><dd>{{ formatDate(data.account.updatedAt) }}</dd></div>
+          @if (person.app === 'energy-hub') {
+            <div><dt>Service radius</dt><dd>{{ data.account.travelRadiusKm === null ? 'Not recorded' : data.account.travelRadiusKm + ' km' }}</dd></div>
+            <div><dt>Availability</dt><dd>{{ person.profile.online === null ? 'Not tracked' : person.profile.online ? 'Online' : 'Offline' }}{{ person.profile.busy ? ' · On service' : '' }}</dd></div>
+          } @else {
+            <div><dt>Email verified</dt><dd>{{ data.account.emailVerified === null ? 'Not recorded' : data.account.emailVerified ? 'Yes' : 'No' }}</dd></div>
+            <div><dt>Phone verified</dt><dd>{{ data.account.phoneVerified === null ? 'Not recorded' : data.account.phoneVerified ? 'Yes' : 'No' }}</dd></div>
+          }
+        </dl>
+      </article>
+    </section>
+  }
+
+  @if (activeTab() === 'work') {
+    <section class="content-card">
+      <div class="section-heading">
+        <div>
+          <h2>{{ person.app === 'energy-hub' ? 'Partner job history' : 'Customer service history' }}</h2>
+          <p>Work records pulled from the connected app databases, newest first.</p>
+        </div>
+        <span class="record-count">{{ data.activity.length }} records</span>
+      </div>
+      @for (item of data.activity; track item.kind + item.id) {
+        <article class="work-record">
+          <div class="work-record-head">
+            <div>
+              <span class="activity-kind">{{ activityLabel(item.kind) }}</span>
+              <h3>{{ item.title }}</h3>
+              <small>{{ item.reference || item.id }}</small>
+            </div>
+            <span class="status-pill" [attr.data-status]="item.status">{{ statusLabel(item.status) }}</span>
+          </div>
+          <div class="work-facts">
+            <div><span>Created / submitted</span><strong>{{ formatDate(item.createdAt) }}</strong></div>
+            @if (item.scheduledAt) { <div><span>Appointment / target</span><strong>{{ item.scheduledAt }}</strong></div> }
+            @if (item.completedAt) { <div><span>Completed</span><strong>{{ formatDate(item.completedAt) }}</strong></div> }
+            @if (item.dueAt) { <div><span>{{ item.kind === 'job' ? 'SLA due' : 'Due / expires' }}</span><strong>{{ formatDate(item.dueAt) }}</strong></div> }
+            @if (item.assignedTo) { <div><span>Assigned engineer</span><strong>{{ item.assignedTo }}</strong></div> }
+            @if (item.location) { <div><span>Service site</span><strong>{{ item.location }}</strong></div> }
+            @if (item.priority) { <div><span>Priority</span><strong>{{ statusLabel(item.priority) }}</strong></div> }
+            @if (item.amount !== null) { <div><span>{{ item.kind === 'project' ? 'Requested budget' : 'Recorded bill' }}</span><strong>{{ formatMoney(item.amount, item.currency || 'INR') }}</strong></div> }
+            @if (item.payoutAmount !== null && item.payoutAmount !== undefined) { <div><span>Partner payout</span><strong>{{ formatMoney(item.payoutAmount) }}</strong></div> }
+            @if (item.travelEtaMinutes !== null && item.travelEtaMinutes !== undefined) { <div><span>Estimated travel</span><strong>{{ item.travelEtaMinutes }} min{{ item.distanceKm ? ' · ' + item.distanceKm + ' km' : '' }}</strong></div> }
+          </div>
+          @if (item.description) { <p class="work-description">{{ item.description }}</p> }
+          @if (item.details.length) {
+            <div class="detail-chips">
+              @for (detail of item.details; track detail) { <span>{{ detail }}</span> }
+            </div>
+          }
+          @if (item.timeline.length) {
+            <details class="timeline-details">
+              <summary>View status timeline · {{ item.timeline.length }} updates</summary>
+              <ol class="timeline">
+                @for (event of item.timeline; track $index) {
+                  <li><span class="timeline-marker"></span><div><strong>{{ event.label }}: {{ statusLabel(event.status) }}</strong><small>{{ formatDate(event.at) }}</small>@if (event.note) { <p>{{ event.note }}</p> }</div></li>
+                }
+              </ol>
+            </details>
+          }
+        </article>
+      } @empty {
+        <p class="empty-state">No jobs, requests, repairs, projects or contracts have been recorded.</p>
+      }
+      @if (person.app === 'energy-hub') {
+        <p class="data-note">Service-site location and estimated travel time are shown only when saved in a job. This is not live GPS or a job-completion ETA.</p>
+      }
+    </section>
+  }
+
+  @if (activeTab() === 'finance') {
+    <section class="finance-content">
+      @if (data.financialSummary.kind === 'payouts') {
+        <div class="finance-summary">
+          <article class="metric-card"><span>Net earnings</span><strong>{{ formatMoney(data.financialSummary.total) }}</strong><small>Across {{ data.financialSummary.count }} payout records</small></article>
+          <article class="metric-card"><span>Paid out</span><strong>{{ formatMoney(data.financialSummary.paid) }}</strong><small>Marked paid in the app</small></article>
+          <article class="metric-card"><span>Pending</span><strong>{{ formatMoney(data.financialSummary.pending) }}</strong><small>Awaiting payout / status update</small></article>
+          <article class="metric-card"><span>Commission + deductions</span><strong>{{ formatMoney(data.financialSummary.commission + data.financialSummary.deductions) }}</strong><small>Recorded deductions</small></article>
+        </div>
+        <article class="content-card">
+          <div class="section-heading"><div><h2>Payout ledger</h2><p>Amounts and payout states saved for this partner.</p></div></div>
+          <div class="table-scroll">
+            <table><thead><tr><th>Job</th><th>Source</th><th>Gross</th><th>Commission</th><th>Deductions</th><th>Net</th><th>Status</th><th>Payout date</th></tr></thead>
+              <tbody>
+                @for (earning of data.earnings; track earning.id) {
+                  <tr><td>{{ earning.jobReference || '—' }}</td><td>{{ earning.source || '—' }}</td><td>{{ formatMoney(earning.gross) }}</td><td>{{ formatMoney(earning.commission) }}</td><td>{{ formatMoney(earning.deductions) }}</td><td><strong>{{ formatMoney(earning.net) }}</strong></td><td><span class="status-pill compact" [attr.data-status]="earning.status">{{ statusLabel(earning.status) }}</span></td><td>{{ formatDate(earning.payoutAt || earning.createdAt) }}</td></tr>
+                } @empty {
+                  <tr><td colspan="8" class="table-empty">No payout records are stored for this partner.</td></tr>
+                }
+              </tbody>
+            </table>
+          </div>
+          <p class="data-note">Bank account numbers and bank references are deliberately not exposed in this profile.</p>
+        </article>
+      } @else {
+        <div class="finance-summary">
+          <article class="metric-card"><span>Order value</span><strong>{{ formatMoney(data.financialSummary.total) }}</strong><small>{{ data.financialSummary.count }} marketplace orders</small></article>
+          <article class="metric-card"><span>Paid</span><strong>{{ formatMoney(data.financialSummary.paid) }}</strong><small>Based on the saved payment status</small></article>
+          <article class="metric-card"><span>Pending</span><strong>{{ formatMoney(data.financialSummary.pending) }}</strong><small>Order/payment not marked paid</small></article>
+          <article class="metric-card"><span>Failed / cancelled</span><strong>{{ formatMoney(data.financialSummary.failed) }}</strong><small>Based on the saved payment status</small></article>
+        </div>
+        <article class="content-card">
+          <div class="section-heading"><div><h2>Marketplace orders &amp; payments</h2><p>Only orders and payment status stored in the app are shown.</p></div></div>
+          <div class="table-scroll">
+            <table><thead><tr><th>Order</th><th>Created</th><th>Order status</th><th>Payment</th><th>Method / provider</th><th>Subtotal</th><th>Delivery</th><th>Total</th></tr></thead>
+              <tbody>
+                @for (order of data.orders; track order.id) {
+                  <tr><td>{{ order.orderNumber }}</td><td>{{ formatDate(order.createdAt) }}</td><td>{{ statusLabel(order.status) }}</td><td>{{ statusLabel(order.paymentStatus || 'not recorded') }}</td><td>{{ order.paymentMode || order.paymentProvider || '—' }}</td><td>{{ formatMoney(order.subtotal, order.currency) }}</td><td>{{ formatMoney(order.deliveryFee, order.currency) }}</td><td><strong>{{ formatMoney(order.total, order.currency) }}</strong></td></tr>
+                } @empty {
+                  <tr><td colspan="8" class="table-empty">No marketplace orders or payments are recorded for this account.</td></tr>
+                }
+              </tbody>
+            </table>
+          </div>
+          @for (order of data.orders; track order.id) {
+            @if (order.timeline.length) {
+              <details class="timeline-details order-timeline">
+                <summary>{{ order.orderNumber }} status history · {{ order.timeline.length }} updates</summary>
+                <ol class="timeline">
+                  @for (event of order.timeline; track $index) {
+                    <li><span class="timeline-marker"></span><div><strong>{{ statusLabel(event.status) }}</strong><small>{{ formatDate(event.at) }}</small>@if (event.note) { <p>{{ event.note }}</p> }</div></li>
+                  }
+                </ol>
+              </details>
+            }
+          }
+        </article>
+      }
+    </section>
+  }
+
+  @if (activeTab() === 'account') {
+    <section class="account-grid">
+      <article class="content-card">
+        <div class="section-heading"><div><h2>Contact &amp; account</h2><p>Registration information saved by the mobile app.</p></div></div>
+        <dl class="detail-list">
+          <div><dt>Full name</dt><dd>{{ person.name }}</dd></div>
+          <div><dt>Email</dt><dd>{{ person.email || 'Not provided' }} @if (data.account.emailVerified !== null) { <span class="verification-mark">{{ data.account.emailVerified ? 'Verified' : 'Unverified' }}</span> }</dd></div>
+          <div><dt>Primary phone</dt><dd>{{ person.phone || 'Not provided' }} @if (data.account.phoneVerified !== null) { <span class="verification-mark">{{ data.account.phoneVerified ? 'Verified' : 'Unverified' }}</span> }</dd></div>
+          @if (data.account.secondaryPhone) { <div><dt>Secondary phone</dt><dd>{{ data.account.secondaryPhone }}</dd></div> }
+          <div><dt>Role / app</dt><dd>{{ statusLabel(person.role) }} · {{ appLabel(person.app) }}</dd></div>
+          <div><dt>Registered</dt><dd>{{ formatDate(person.registeredAt) }}</dd></div>
+          <div><dt>Last account update</dt><dd>{{ formatDate(data.account.updatedAt) }}</dd></div>
+          @if (data.account.lastLoginAt) { <div><dt>Last sign-in</dt><dd>{{ formatDate(data.account.lastLoginAt) }}</dd></div> }
+          <div><dt>Registered address</dt><dd>{{ person.profile.registeredAddress || 'Not provided' }}</dd></div>
+        </dl>
+      </article>
+
+      @if (person.app === 'energy-hub') {
+        <article class="content-card">
+          <div class="section-heading"><div><h2>Partner onboarding</h2><p>Application progress and work profile.</p></div></div>
+          <dl class="detail-list">
+            <div><dt>Application status</dt><dd>{{ data.account.onboarding?.status ? statusLabel(data.account.onboarding.status) : 'Not recorded' }}</dd></div>
+            <div><dt>Application step</dt><dd>{{ data.account.onboarding?.currentStep ?? 'Not recorded' }}</dd></div>
+            <div><dt>Submitted</dt><dd>{{ formatDate(data.account.onboarding?.submittedAt || null) }}</dd></div>
+            <div><dt>Partner since</dt><dd>{{ formatDate(data.account.partnerSince) }}</dd></div>
+            <div><dt>Experience</dt><dd>{{ formatExperience(person.profile.experienceYears) }}</dd></div>
+            <div><dt>Qualification</dt><dd>{{ person.profile.qualification || 'Not recorded' }}</dd></div>
+            <div><dt>Service radius</dt><dd>{{ data.account.travelRadiusKm === null ? 'Not recorded' : data.account.travelRadiusKm + ' km' }}</dd></div>
+            <div><dt>Service areas</dt><dd>{{ person.profile.serviceAreas.join(', ') || 'Not recorded' }}</dd></div>
+            <div><dt>Specializations</dt><dd>{{ person.profile.specializations.join(', ') || 'Not recorded' }}</dd></div>
+            <div><dt>Payout profile</dt><dd>{{ data.account.payoutProfileConfigured === null ? 'Not recorded' : data.account.payoutProfileConfigured ? 'Bank details configured' : 'Not configured' }}</dd></div>
+            @if (data.account.onboarding?.rejectionReason) { <div class="wide"><dt>Application note</dt><dd>{{ data.account.onboarding?.rejectionReason }}</dd></div> }
+          </dl>
+          @if (data.account.vehicleVerification; as vehicle) {
+            <div class="subsection-title">Delivery vehicle verification</div>
+            <p class="inline-fact">{{ vehicle.type }} · {{ statusLabel(vehicle.status) }}@if (vehicle.rejectionReason) { · {{ vehicle.rejectionReason }} }</p>
+          }
+        </article>
+        <article class="content-card full-span">
+          <div class="section-heading"><div><h2>Verification documents</h2><p>Document status only; private file contents are not displayed here.</p></div><span class="record-count">{{ data.account.documents.length }} documents</span></div>
+          <div class="document-grid">
+            @for (document of data.account.documents; track document.type + document.uploadedAt) {
+              <div class="document-card"><strong>{{ statusLabel(document.type) }}</strong><span class="status-pill compact" [attr.data-status]="document.status">{{ statusLabel(document.status) }}</span><small>{{ formatDate(document.uploadedAt) }}</small>@if (document.rejectionReason) { <p>{{ document.rejectionReason }}</p> }</div>
+            } @empty {
+              <p class="empty-state">No verification documents are stored for this partner.</p>
+            }
+          </div>
+        </article>
+      } @else {
+        <article class="content-card">
+          <div class="section-heading"><div><h2>Companies</h2><p>Companies associated with this account.</p></div></div>
+          @for (company of data.account.companies; track company.name) {
+            <div class="company-row"><strong>{{ company.name }}</strong><span>{{ company.industry || 'Industry not recorded' }}</span><small>{{ company.location || 'Location not recorded' }} · {{ company.status || 'Status not recorded' }}</small></div>
+          } @empty {
+            <p class="empty-state">No company is linked to this account.</p>
+          }
+        </article>
+        <article class="content-card">
+          <div class="section-heading"><div><h2>Sites &amp; assets</h2><p>Saved company service locations and equipment.</p></div></div>
+          @for (site of data.account.sites; track site.name + site.address) {
+            <div class="site-row"><div><strong>{{ site.name }} @if (site.primary) { <span class="primary-mark">Primary</span> }</strong><small>{{ site.address || 'Address not recorded' }}{{ site.city ? ', ' + site.city : '' }}</small></div><span>{{ site.deviceCount }} devices</span></div>
+          } @empty {
+            <p class="empty-state">No sites are linked to this account.</p>
+          }
+          @if (data.account.devices.length) {
+            <div class="subsection-title">Registered equipment · {{ data.account.devices.length }}</div>
+            <div class="device-grid">
+              @for (device of data.account.devices; track $index) {
+                <div class="device-card"><strong>{{ device.type || 'Device' }} {{ device.model || '' }}</strong><span>{{ device.manufacturer || 'Manufacturer not recorded' }} · {{ device.site || 'Site not recorded' }}</span><small>{{ device.location || 'Location not recorded' }}</small></div>
+              }
+            </div>
+          }
+        </article>
+        <article class="content-card full-span">
+          <div class="section-heading"><div><h2>Support requests</h2><p>Support ticket status and creation date.</p></div><span class="record-count">{{ data.supportRequests.length }} requests</span></div>
+          @for (request of data.supportRequests; track request.subject + request.createdAt) {
+            <div class="support-row"><strong>{{ request.subject }}</strong><span class="status-pill compact" [attr.data-status]="request.status">{{ statusLabel(request.status) }}</span><small>{{ formatDate(request.createdAt) }}</small></div>
+          } @empty {
+            <p class="empty-state">No support requests are recorded for this account.</p>
+          }
+        </article>
+      }
+    </section>
+  }
+}

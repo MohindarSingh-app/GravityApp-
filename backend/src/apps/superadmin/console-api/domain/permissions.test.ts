@@ -12,6 +12,7 @@ test('default matrix gives superadmin full access and viewer read-only access', 
   assert.equal(hasPermission('superadmin', matrix, 'users', 'delete'), true);
   assert.equal(hasPermission('viewer', matrix, 'jobs', 'view'), true);
   assert.equal(hasPermission('viewer', matrix, 'jobs', 'edit'), false);
+  assert.equal(hasPermission('viewer', matrix, 'directory', 'view'), false);
   assert.equal(hasPermission('admin', matrix, 'users', 'view'), false);
 });
 
