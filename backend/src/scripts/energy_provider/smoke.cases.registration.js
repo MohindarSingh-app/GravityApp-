@@ -39,10 +39,21 @@ module.exports = async function registrationCases() {
     purpose: 'registration',
   });
   check('registration OTP links the draft to the verified user', String(verified.registrationId) === String(secondRoleStarted.id));
-  check('registration OTP opens onboarding', verified.requiresRegistration);
+  check('registration OTP creates a pending initial review request', verified.approvalRequired && verified.status === 'pending_initial_review');
 
   const userId = verified.user.id;
   const photo = `data:image/png;base64,${Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]).toString('base64')}`;
+  await expectError(
+    'partner profile cannot be completed before initial approval',
+    () => RegistrationService.savePersonalDetails(secondRoleStarted.id, {
+      fullName: 'Registration Partner',
+      dateOfBirth: '1990-01-01',
+      address: 'Jaipur',
+      emergencyContact: '9000000022',
+    }),
+    403
+  );
+  await RegistrationModel.updateById(secondRoleStarted.id, { initial_review_status: 'approved' });
   await RegistrationService.savePersonalDetails(secondRoleStarted.id, {
     fullName: 'Registration Partner',
     dateOfBirth: '1990-01-01',
@@ -99,6 +110,7 @@ module.exports = async function registrationCases() {
   const expertiseStart = await RegistrationService.start({ mobile: expertiseMobile, email: 'expertise@example.com', role: 'service_partner' });
   const expertiseVerified = await AuthService.verifyOtp({ mobile: expertiseMobile, otp: expertiseStart.devOtp, purpose: 'registration' });
   const expertiseApplication = await RegistrationService.getById(expertiseVerified.registrationId);
+  await RegistrationModel.updateById(expertiseApplication.id, { initial_review_status: 'approved' });
   await RegistrationService.saveProfessionalDetails(expertiseApplication.id, {
     experience: '3 – 5 years', qualification: 'ITI — Electrician Trade', partnerType: 'service_partner', categories: ['VFD / Drives'],
   });

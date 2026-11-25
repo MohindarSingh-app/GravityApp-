@@ -24,6 +24,8 @@ export function OTPVerificationScreen() {
   const [loading, setLoading] = useState(false);
   const [secondsLeft, setSecondsLeft] = useState(route.params && route.params.expiresIn ? route.params.expiresIn : 300);
   const [cooldown, setCooldown] = useState(route.params && route.params.cooldownSeconds ? route.params.cooldownSeconds : 0);
+  const [developmentOtp, setDevelopmentOtp] = useState(route.params && route.params.devOtp ? route.params.devOtp : '');
+  const [notice, setNotice] = useState('');
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -49,12 +51,13 @@ export function OTPVerificationScreen() {
     setLoading(true);
     setError('');
     try {
-      await verifyOtp({
+      const result = await verifyOtp({
         ...(params.email ? { email: params.email } : { phone: params.phone }),
         purpose,
         ...(params.fullName ? { fullName: params.fullName } : {}),
         otp,
       }, { newCompanyRegistration: Boolean(params.newCompanyRegistration) });
+      if (result && result.approvalRequired) setNotice(result.message || 'Your registration is awaiting Superadmin approval.');
     } catch (err) {
       setError(otpFailureMessage(err, secondsLeft === 0));
     } finally {
@@ -74,6 +77,7 @@ export function OTPVerificationScreen() {
       });
       setSecondsLeft(result.expiresIn || 300);
       setCooldown(result.cooldownSeconds || 30);
+      setDevelopmentOtp(result.devOtp || '');
       setCode('');
     } catch (err) {
       const wait = retryAfterSeconds(err);
@@ -103,6 +107,10 @@ export function OTPVerificationScreen() {
     >
       <Text style={type.display} accessibilityRole="header">Enter OTP</Text>
       <Text style={type.muted}>{identifier ? `Sent to ${displayId}` : 'Go back and enter your email or phone number.'}</Text>
+      {__DEV__ && developmentOtp ? (
+        <Text style={[type.small, styles.center, { color: colors.accentText }]}>Development OTP: {developmentOtp}</Text>
+      ) : null}
+      {notice ? <Banner message={notice} /> : null}
 
       <Pressable onPress={() => hiddenRef.current && hiddenRef.current.focus()} accessibilityLabel="Enter 6-digit verification code">
         <View style={styles.cells} pointerEvents="none">
@@ -140,11 +148,6 @@ export function OTPVerificationScreen() {
       <Text style={[type.muted, styles.center, { color: expired ? colors.danger : colors.muted }]}>
         {expired ? 'This code has expired.' : cooldown > 0 ? `Resend in ${cooldown}s` : 'You can resend now'}
       </Text>
-      {__DEV__ ? (
-        <Text style={[type.small, styles.center, { color: colors.muted }]}>
-          Dev build: backend me SMS_PROVIDER=dev ho to OTP server ke /api/dev/mailbox me milta hai.
-        </Text>
-      ) : null}
       <Banner message={error} />
       <Pressable
         accessibilityRole="button"

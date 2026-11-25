@@ -1,0 +1,373 @@
+<section class="profile-page">
+  <header class="profile-heading">
+    <div>
+      <h1>My profile</h1>
+      <p>Manage your administrator identity and security.</p>
+    </div>
+  </header>
+
+  @if (logoutError()) {
+    <div class="profile-error" role="alert">{{ logoutError() }}</div>
+  }
+
+  @if (user(); as account) {
+    <section class="identity-card">
+      <div class="identity">
+        <div class="profile-avatar-wrap">
+          <div class="profile-avatar" aria-hidden="true">
+            @if (avatarImageUrl(); as avatarUrl) {
+              <img [src]="avatarUrl" alt="" />
+            } @else {
+              {{ account.avatarInitials }}
+            }
+          </div>
+          <button class="avatar-camera" type="button" aria-label="Change profile picture"
+            title="Change profile picture" (click)="avatarInput.click()" [disabled]="avatarLoading()">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M4 7h3l1.5-2h7L17 7h3v12H4z"></path>
+              <circle cx="12" cy="13" r="3.5"></circle>
+            </svg>
+          </button>
+          <input #avatarInput class="avatar-file-input" type="file" accept="image/jpeg,image/png,image/webp"
+            tabindex="-1" aria-hidden="true" (change)="selectAvatar($event)" />
+        </div>
+        <div class="identity-copy">
+          <p>Signed in as</p>
+          <h2>{{ account.name }}</h2>
+          <span>{{ account.email }}</span>
+          @if (avatarError()) {
+            <p class="avatar-message avatar-error" role="alert">{{ avatarError() }}</p>
+          }
+          @if (avatarLoadError() && account.avatarUrl && !avatarError()) {
+            <p class="avatar-message avatar-error" role="status">{{ avatarLoadError() }}</p>
+          }
+          @if (avatarSaved()) {
+            <p class="avatar-message" role="status">Profile picture updated.</p>
+          }
+        </div>
+      </div>
+      <div class="identity-actions">
+        @if (account.avatarUrl) {
+          <button type="button" class="remove-avatar" (click)="removeAvatar()" [disabled]="avatarLoading()">
+            {{ avatarLoading() ? 'Saving…' : 'Remove photo' }}
+          </button>
+        }
+        <span class="role-badge">{{ roleLabel(account.role) }}</span>
+        <button type="button" class="logout-button" (click)="logout()">
+          <span aria-hidden="true">↗</span> Sign out
+        </button>
+      </div>
+    </section>
+
+    <nav class="profile-tabs" role="tablist" aria-label="Profile sections">
+      @for (tab of profileTabs(); track tab.id) {
+        <button class="profile-tab" type="button" role="tab" [class.active]="activeTab() === tab.id"
+          [attr.id]="'profile-tab-' + tab.id" [attr.aria-controls]="'profile-panel-' + tab.id"
+          [attr.aria-selected]="activeTab() === tab.id" [attr.tabindex]="activeTab() === tab.id ? 0 : -1"
+          (click)="selectTab(tab.id)" (keydown)="onTabKeydown($event, tab.id)">
+          {{ tab.label }}
+        </button>
+      }
+    </nav>
+
+    @if (activeTab() === 'overview') {
+      <section class="profile-tab-panel" role="tabpanel" id="profile-panel-overview" aria-labelledby="profile-tab-overview">
+        <div class="profile-columns">
+          <section class="profile-card">
+            <div class="card-heading">
+              <div>
+                <h2>Account snapshot</h2>
+                <p>Identity supplied by your authenticated Superadmin session.</p>
+              </div>
+              <span class="card-icon" aria-hidden="true">ID</span>
+            </div>
+            <dl class="details-list">
+              <div><dt>Full name</dt><dd>{{ account.name }}</dd></div>
+              <div><dt>Email address</dt><dd>{{ account.email }}</dd></div>
+              <div><dt>Role</dt><dd>{{ roleLabel(account.role) }}</dd></div>
+              <div><dt>Account ID</dt><dd>{{ account.id }}</dd></div>
+            </dl>
+            <button class="inline-action" type="button" (click)="selectTab('personal')">Personal information <span aria-hidden="true">→</span></button>
+          </section>
+
+          <section class="profile-card">
+            <div class="card-heading">
+              <div>
+                <h2>Security snapshot</h2>
+                <p>Your current authenticated console session.</p>
+              </div>
+              <span class="card-icon security-icon" aria-hidden="true">✓</span>
+            </div>
+            <div class="security-summary">
+              <span class="security-dot" aria-hidden="true"></span>
+              <div>
+                <strong>Session active</strong>
+                <p>Expires {{ formatDate(sessionExpiresAt()) }}</p>
+              </div>
+            </div>
+            <div class="health-inline" [class.health-offline]="apiHealth() === 'offline'" role="status">
+              <span class="health-indicator" [class.health-indicator-offline]="apiHealth() === 'offline'"
+                [class.health-indicator-loading]="apiHealth() === 'loading'" aria-hidden="true"></span>
+              <div>
+                <strong>
+                  @if (apiHealth() === 'online') { API heartbeat reachable }
+                  @else if (apiHealth() === 'offline') { API heartbeat unavailable }
+                  @else { Checking API heartbeat }
+                </strong>
+                <p>
+                  @if (apiHealth() === 'online') { Last response {{ formatHealthTime(apiHealthTime()) }} · Reachability only, not a database health check. }
+                  @else if (apiHealthError()) { {{ apiHealthError() }} }
+                  @else { Verifying backend reachability. }
+                </p>
+              </div>
+              <button class="health-refresh" type="button" (click)="loadApiHealth()"
+                [disabled]="apiHealth() === 'loading'">
+                {{ apiHealth() === 'loading' ? 'Checking…' : 'Check now' }}
+              </button>
+            </div>
+            <button class="inline-action" type="button" (click)="selectTab('security')">Review security <span aria-hidden="true">→</span></button>
+          </section>
+        </div>
+      </section>
+    }
+
+    @if (activeTab() === 'personal') {
+      <section class="profile-tab-panel" role="tabpanel" id="profile-panel-personal" aria-labelledby="profile-tab-personal">
+        <div class="profile-columns personal-columns">
+          <section class="profile-card">
+            <div class="card-heading">
+              <div>
+                <h2>Personal information</h2>
+                <p>Update the details used to identify your account.</p>
+              </div>
+              @if (!editingProfile()) {
+                <button class="refresh-button" type="button" (click)="editProfile()">Edit details</button>
+              }
+            </div>
+            @if (editingProfile()) {
+              <form class="profile-form" (submit)="saveProfile($event)">
+                <label for="profile-name">Full name</label>
+                <input id="profile-name" type="text" autocomplete="name" required minlength="2" maxlength="100"
+                  [value]="profileName()" (input)="profileName.set(readInput($event))" />
+                <label for="profile-email">Sign-in email</label>
+                <input id="profile-email" type="email" [value]="account.email" readonly />
+                <small class="field-note">Sign-in email changes require email verification, which is not yet available.</small>
+                <label for="profile-phone">Phone number <span>Optional</span></label>
+                <input id="profile-phone" type="tel" autocomplete="tel" maxlength="32"
+                  [value]="profilePhone()" (input)="profilePhone.set(readInput($event))" />
+                @if (profileError()) {
+                  <p class="profile-error" role="alert">{{ profileError() }}</p>
+                }
+                <div class="form-actions">
+                  <button class="preference-button" type="submit" [disabled]="profileSaving()">
+                    {{ profileSaving() ? 'Saving…' : 'Save changes' }}
+                  </button>
+                  <button class="refresh-button" type="button" (click)="cancelProfileEdit()" [disabled]="profileSaving()">Cancel</button>
+                </div>
+              </form>
+            } @else {
+              <dl class="details-list">
+                <div><dt>Full name</dt><dd>{{ account.name }}</dd></div>
+                <div><dt>Sign-in email</dt><dd>{{ account.email }}</dd></div>
+                <div><dt>Phone number</dt><dd>{{ account.phone || 'Not added' }}</dd></div>
+                <div><dt>Account role</dt><dd>{{ roleLabel(account.role) }}</dd></div>
+                <div><dt>Account ID</dt><dd>{{ account.id }}</dd></div>
+                <div><dt>Account created</dt><dd>{{ formatProfileDate(account.createdAt) }}</dd></div>
+                <div><dt>Last profile update</dt><dd>{{ formatProfileDate(account.updatedAt) }}</dd></div>
+              </dl>
+              @if (profileSaved()) {
+                <p class="profile-success" role="status">Your profile details were saved.</p>
+              }
+            }
+
+            <div class="company-section">
+              <div class="company-heading">
+                <div>
+                  <h3>Company information</h3>
+                  <p>Shared platform contact details. Changes apply across the console.</p>
+                </div>
+                @if (canEditCompany() && !companyEditing()) {
+                  <button class="refresh-button" type="button" (click)="editCompanyProfile()">Edit company details</button>
+                }
+              </div>
+              @if (companyLoading()) {
+                <p class="field-note" role="status">Loading company information…</p>
+              } @else if (companyEditing()) {
+                <form class="profile-form company-form" (submit)="saveCompanyProfile($event)">
+                  <label for="company-name">Company name <span>Optional</span></label>
+                  <input id="company-name" type="text" autocomplete="organization" maxlength="150"
+                    [value]="companyProfile().companyName"
+                    (input)="updateCompanyField('companyName', $event)" />
+                  <label for="company-phone">Business phone</label>
+                  <input id="company-phone" type="tel" autocomplete="tel" maxlength="32"
+                    [value]="companyProfile().phone" (input)="updateCompanyField('phone', $event)" />
+                  <label for="company-email">Business email <span>Optional</span></label>
+                  <input id="company-email" type="email" autocomplete="email" maxlength="254"
+                    [value]="companyProfile().email" (input)="updateCompanyField('email', $event)" />
+                  <label for="company-gstin">GSTIN <span>Optional</span></label>
+                  <input id="company-gstin" type="text" maxlength="15" autocapitalize="characters"
+                    [value]="companyProfile().gstin" (input)="updateCompanyField('gstin', $event)" />
+                  @if (companyError()) {
+                    <p class="profile-error" role="alert">{{ companyError() }}</p>
+                  }
+                  <div class="form-actions">
+                    <button class="preference-button" type="submit" [disabled]="companySaving()">
+                      {{ companySaving() ? 'Saving…' : 'Save company details' }}
+                    </button>
+                    <button class="refresh-button" type="button" (click)="cancelCompanyEdit()" [disabled]="companySaving()">Cancel</button>
+                  </div>
+                </form>
+              } @else {
+                <dl class="details-list company-details">
+                  <div><dt>Company name</dt><dd>{{ companyProfile().companyName || 'Not added' }}</dd></div>
+                  <div><dt>Business phone</dt><dd>{{ companyProfile().phone || 'Not added' }}</dd></div>
+                  <div><dt>Business email</dt><dd>{{ companyProfile().email || 'Not added' }}</dd></div>
+                  <div><dt>GSTIN</dt><dd>{{ companyProfile().gstin || 'Not added' }}</dd></div>
+                </dl>
+                @if (!companyProfile().gstin) {
+                  <p class="field-note">GSTIN has not been supplied; no sample tax ID is used.</p>
+                }
+                @if (companyError()) {
+                  <p class="profile-error" role="alert">{{ companyError() }}</p>
+                }
+                @if (companySaved()) {
+                  <p class="profile-success" role="status">Company information was saved.</p>
+                }
+              }
+            </div>
+          </section>
+        </div>
+      </section>
+    }
+
+    @if (activeTab() === 'security') {
+      <section class="profile-tab-panel" role="tabpanel" id="profile-panel-security" aria-labelledby="profile-tab-security">
+        <div class="profile-columns security-columns">
+          <section class="profile-card">
+            <div class="card-heading">
+              <div>
+                <h2>Session security</h2>
+                <p>Current sign-in and authorization state.</p>
+              </div>
+              <span class="card-icon security-icon" aria-hidden="true">✓</span>
+            </div>
+            <div class="security-summary">
+              <span class="security-dot" aria-hidden="true"></span>
+              <div>
+                <strong>Authenticated session</strong>
+                <p>Session expires {{ formatDate(sessionExpiresAt()) }}. Sign out when you finish using this device.</p>
+              </div>
+            </div>
+            <button class="logout-button security-logout" type="button" (click)="logout()">Sign out from this device</button>
+          </section>
+
+          <section class="profile-card">
+            <div class="card-heading">
+              <div>
+                <h2>Security controls</h2>
+                <p>What this console can currently verify.</p>
+              </div>
+              <span class="card-icon" aria-hidden="true">!</span>
+            </div>
+            <div class="security-summary">
+              <span class="security-dot" aria-hidden="true"></span>
+              <div>
+                <strong>Server-enforced access</strong>
+                <p>Session and page permissions are validated by the backend.</p>
+              </div>
+            </div>
+            <form class="profile-form password-form" (submit)="savePassword($event)">
+              <label for="current-password">Current password</label>
+              <input id="current-password" type="password" autocomplete="current-password" maxlength="200" required
+                [value]="passwordCurrent()" (input)="passwordCurrent.set(readInput($event))" />
+              <label for="new-password">New password</label>
+              <input id="new-password" type="password" autocomplete="new-password" minlength="12" maxlength="200" required
+                [value]="passwordNew()" (input)="passwordNew.set(readInput($event))" />
+              <label for="confirm-password">Confirm new password</label>
+              <input id="confirm-password" type="password" autocomplete="new-password" minlength="12" maxlength="200" required
+                [value]="passwordConfirm()" (input)="passwordConfirm.set(readInput($event))" />
+              <small class="field-note">Use 12–200 characters. Changing your password signs out other active sessions.</small>
+              @if (passwordError()) {
+                <p class="profile-error" role="alert">{{ passwordError() }}</p>
+              }
+              @if (passwordSaved()) {
+                <p class="profile-success" role="status">Password changed. Your current session remains active.</p>
+              }
+              <div class="form-actions">
+                <button class="preference-button" type="submit" [disabled]="passwordSaving()">
+                  {{ passwordSaving() ? 'Updating…' : 'Change password' }}
+                </button>
+              </div>
+            </form>
+            @if (canViewActivity()) {
+              <button class="inline-action" type="button" (click)="selectTab('activity')">Review sign-in activity <span aria-hidden="true">→</span></button>
+            }
+          </section>
+        </div>
+      </section>
+    }
+
+    @if (activeTab() === 'activity') {
+      <section class="profile-tab-panel" role="tabpanel" id="profile-panel-activity" aria-labelledby="profile-tab-activity">
+        <section class="profile-card activity-card">
+          <div class="card-heading">
+            <div>
+              <h2>Your account activity</h2>
+              <p>Recent server-recorded events attributed to this account.</p>
+            </div>
+            <div class="activity-actions">
+              <a class="security-link" routerLink="/modules/activity">Full activity log <span aria-hidden="true">→</span></a>
+              <button class="refresh-button" type="button" (click)="loadActivity(true)" [disabled]="activityLoading()">
+                {{ activityLoading() ? 'Refreshing…' : 'Refresh' }}
+              </button>
+            </div>
+          </div>
+
+          @if (activityError()) {
+            <div class="profile-error" role="alert">{{ activityError() }}</div>
+          }
+          @if (activityLoading() && !activityLoaded()) {
+            <div class="activity-empty" role="status">Loading your account activity…</div>
+          }
+          @if (activityLoaded() && !recentActivity().length && !activityError()) {
+            <div class="activity-empty">No activity events were found for this account.</div>
+          }
+          <div class="activity-timeline">
+            @for (event of recentActivity(); track event.id) {
+              <article class="activity-row">
+                <div class="activity-copy">
+                  <strong>{{ activityLabel(event.action) }}</strong>
+                  <p>{{ activityDetails(event) || 'Account activity recorded by the server.' }}</p>
+                </div>
+                <time [attr.datetime]="event.at">{{ formatActivityDate(event.at) }}</time>
+              </article>
+            }
+          </div>
+        </section>
+      </section>
+    }
+
+    @if (activeTab() === 'preferences') {
+      <section class="profile-tab-panel" role="tabpanel" id="profile-panel-preferences" aria-labelledby="profile-tab-preferences">
+        <section class="profile-card preferences-card">
+          <div class="card-heading">
+            <div>
+              <h2>Appearance</h2>
+              <p>Choose how the Superadmin console looks on this device.</p>
+            </div>
+            <span class="card-icon" aria-hidden="true">◐</span>
+          </div>
+          <div class="preference-row">
+            <div class="preference-copy">
+              <strong>{{ theme.mode() === 'dark' ? 'Dark mode' : 'Light mode' }}</strong>
+              <p>Applied across the Superadmin console and saved on this device.</p>
+            </div>
+            <button class="preference-button" type="button" (click)="theme.toggleMode()">
+              Switch to {{ theme.mode() === 'dark' ? 'light' : 'dark' }} mode
+            </button>
+          </div>
+        </section>
+      </section>
+    }
+  }
+</section>

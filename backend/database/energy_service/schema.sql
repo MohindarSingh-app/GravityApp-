@@ -1050,7 +1050,7 @@ CREATE TABLE public.users (
     avatar_url text,
     CONSTRAINT users_password_hash_check CHECK (((password_hash IS NULL) OR (char_length(password_hash) > 0))),
     CONSTRAINT users_secondary_phone_check CHECK (((secondary_phone IS NULL) OR ((secondary_phone)::text ~ '^\+[1-9][0-9]{7,14}$'::text))),
-    CONSTRAINT users_status_check CHECK (((status)::text = ANY ((ARRAY['active'::character varying, 'inactive'::character varying, 'suspended'::character varying])::text[])))
+    CONSTRAINT users_status_check CHECK (((status)::text = ANY ((ARRAY['active'::character varying, 'inactive'::character varying, 'suspended'::character varying, 'pending_approval'::character varying])::text[])))
 );
 
 

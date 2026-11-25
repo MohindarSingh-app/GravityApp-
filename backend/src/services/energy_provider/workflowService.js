@@ -15,6 +15,7 @@ const { db, nowIso } = require('../../db/energy_provider/index');
 const JobModel = require('../../models/energy_provider/JobModel');
 const {
   WorkflowStepModel,
+  LiveLocationModel,
   PartModel,
   PhotoModel,
   StageHistoryModel,
@@ -89,11 +90,14 @@ const WorkflowService = {
   },
 
   /** Step 1 - check-in at site. */
-  async checkIn(user, jobId) {
+  async checkIn(user, jobId, payload = {}) {
     const job = await this.assertAssigned(user, jobId);
     if (job.stage !== 'accepted' && job.stage !== 'checked_in') {
       throw ApiError.conflict('This job cannot be checked in at its current stage');
     }
+    const coordinates = payload.location == null
+      ? null
+      : this.validateCoordinates(payload.location);
 
     const checkedInAt = nowIso();
     await this.updateStep(job.id, 1, {
@@ -103,7 +107,44 @@ const WorkflowService = {
     });
     await this.advanceStage(job, 'checked_in', user.id, 'Checked in at site');
 
-    return { stepNumber: 1, status: 'done', checkedInAt };
+    if (coordinates) {
+      await LiveLocationModel.upsert(job.id, coordinates.latitude, coordinates.longitude);
+    }
+
+    return {
+      stepNumber: 1,
+      status: 'done',
+      checkedInAt,
+      liveTracking: !!coordinates,
+    };
+  },
+
+  validateCoordinates(location) {
+    if (!location || typeof location !== 'object' ||
+        typeof location.latitude !== 'number' || !Number.isFinite(location.latitude) ||
+        location.latitude < -90 || location.latitude > 90 ||
+        typeof location.longitude !== 'number' || !Number.isFinite(location.longitude) ||
+        location.longitude < -180 || location.longitude > 180) {
+      throw ApiError.badRequest('A valid GPS latitude and longitude are required');
+    }
+    return { latitude: location.latitude, longitude: location.longitude };
+  },
+
+  async recordLiveLocation(user, jobId, location) {
+    const coordinates = this.validateCoordinates(location);
+    const job = await this.assertAssigned(user, jobId);
+    if (
+      job.status !== 'in_progress' ||
+      !['checked_in', 'diagnosed', 'parts_used', 'photos_done'].includes(job.stage)
+    ) {
+      throw ApiError.conflict('Live location is only accepted during checked-in active work');
+    }
+    const record = await LiveLocationModel.upsert(
+      job.id,
+      coordinates.latitude,
+      coordinates.longitude,
+    );
+    return { jobId: job.id, updatedAt: record.updated_at };
   },
 
   /** Step 2 - diagnosis with issue tags. */
@@ -306,6 +347,11 @@ const WorkflowService = {
                 \`updated_at\` = ?
           WHERE \`id\` = ?`,
         [nowIso(), user.id]
+      );
+
+      await handle.run(
+        'DELETE FROM `job_live_locations` WHERE `job_id` = ?',
+        [job.id]
       );
 
       await handle.run(

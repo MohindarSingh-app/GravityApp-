@@ -1,0 +1,85 @@
+<section class="page-head">
+  <div>
+    <h1>Live Monitor</h1>
+    <p>Partner and job activity from the latest connected database records.</p>
+  </div>
+  <span class="live-badge">● DATABASE</span>
+</section>
+
+<div class="stat-row">
+  <div class="stat-card live-stat-card">
+    <div class="stat-num">{{ ops.partnersOnline().length }}</div>
+    <div class="stat-lbl">Partners Online</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-num">{{ ops.liveJobs().length }}</div>
+    <div class="stat-lbl">Jobs In Progress</div>
+  </div>
+  <div class="stat-card alert">
+    <div class="stat-num">{{ ops.slaRiskJobs().length }}</div>
+    <div class="stat-lbl">SLA Breach Risk</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-num">{{ ops.activeRepairs().length }}</div>
+    <div class="stat-lbl">Repair Tickets</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-num">{{ ops.companies.length }}</div>
+    <div class="stat-lbl">Active Companies</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-num">₹{{ ops.todayServiceEarnings().toLocaleString('en-IN') }}</div>
+    <div class="stat-lbl">Today's recorded service earnings</div>
+  </div>
+</div>
+
+<div class="grid-2">
+  <div class="panel">
+    <div class="panel-head">
+      <div class="panel-title">Live Jobs</div>
+    </div>
+    <div class="tbl-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Job</th>
+            <th>Partner</th>
+            <th>SLA</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (job of ops.liveJobs(); track job.id) {
+          <tr>
+            <td><strong>{{ job.id }}</strong><small>{{ job.service }}</small></td>
+            <td>{{ job.partner ?? '— Unassigned —' }}</td>
+            <td>@if (job.slaMinsLeft !== null) { {{ job.slaMinsLeft }} min } @else { — }</td>
+            <td><span class="status-pill" [class]="job.status === 'sla-risk' ? 'bad' : 'info'">{{ job.status ===
+                'sla-risk' ? 'SLA risk' : 'In progress' }}</span></td>
+          </tr>
+          }
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head">
+      <div class="panel-title">Partners Online</div>
+    </div>
+    <div class="panel-body card-list">
+      @for (p of ops.partnersOnline(); track p.id) {
+      <div class="op-card">
+        <div class="oc-icon">{{ p.name.charAt(0) }}</div>
+        <div class="oc-main">
+          <strong>{{ p.name }}</strong>
+          <small>{{ p.type }} · ★ {{ p.rating }} · {{ p.jobsDone }} jobs</small>
+        </div>
+        <span class="live-badge">●</span>
+      </div>
+      } @empty {
+      <p class="empty-state">No partners online.</p>
+      }
+    </div>
+  </div>
+</div>

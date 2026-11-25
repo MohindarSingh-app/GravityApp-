@@ -1,4 +1,6 @@
 import React, { useEffect, useState } from 'react';
+import { AppState } from 'react-native';
+import { isAxiosError } from 'axios';
 import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { AppButton } from '../../components/AppButton';
 import { AppHeader, goBackOrHome } from '../../components/AppHeader';
@@ -6,6 +8,7 @@ import { AppTextInput } from '../../components/AppTextInput';
 import { SignaturePad } from '../../components/SignaturePad';
 import { registerThemeStyles, theme } from '../../components/theme';
 import { apiService } from '../../services/api';
+import { captureJobLocation, watchActiveJobLocation } from '../../services/jobLocation';
 import { launchImageLibraryAsync } from '../../services/imagePicker';
 import { useUserPreferences } from '../../providers/UserPreferencesProvider';
 
@@ -36,7 +39,7 @@ interface PhotoDraft {
 }
 
 interface FieldWorkflowScreenProps {
-  route: { params: { jobId: number; job?: any } };
+  route: { params: { jobId: number; job?: any; locationTrackingAllowed?: boolean | null } };
   navigation: any;
   embedded?: boolean;
   onJobChange?: (job: any) => void;
@@ -60,7 +63,23 @@ export const FieldWorkflowScreen: React.FC<FieldWorkflowScreenProps> = ({ route,
   const [loading, setLoading] = useState(!route.params.job);
   const [working, setWorking] = useState(false);
   const [error, setError] = useState('');
+  const [trackingNotice, setTrackingNotice] = useState(
+    route.params.locationTrackingAllowed === false
+      ? 'Location permission is off. Live location is not being shared.'
+      : '',
+  );
+  const [locationTrackingAllowed, setLocationTrackingAllowed] = useState<boolean | null>(
+    route.params.locationTrackingAllowed ?? null,
+  );
+  const [appIsActive, setAppIsActive] = useState(AppState.currentState === 'active');
   const [completion, setCompletion] = useState<any>(null);
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener('change', (state) => {
+      setAppIsActive(state === 'active');
+    });
+    return () => subscription.remove();
+  }, []);
 
   const loadJob = async () => {
     setLoading(true);
@@ -106,6 +125,63 @@ export const FieldWorkflowScreen: React.FC<FieldWorkflowScreenProps> = ({ route,
     loadJob();
   }, [jobId]);
 
+  useEffect(() => {
+    const activeStages = ['checked_in', 'diagnosed', 'parts_used', 'photos_done'];
+    const activeWork = job?.status === 'in_progress' && activeStages.includes(job?.stage);
+    if (completion || !activeWork || !appIsActive || locationTrackingAllowed === false) {
+      if (!appIsActive && activeWork) setTrackingNotice('Live location pauses while the app is in the background.');
+      return;
+    }
+
+    let disposed = false;
+    let stopWatching: (() => void) | null = null;
+    setTrackingNotice('Connecting to GPS for this active job…');
+    void watchActiveJobLocation(
+      async (location) => {
+        if (disposed) return;
+        try {
+          await apiService.updateJobLocation(jobId, location);
+          setTrackingNotice('Live location is shared with Superadmin while this app is open.');
+        } catch (locationError: unknown) {
+          if (isAxiosError(locationError) && locationError.response?.status === 409) {
+            stopWatching?.();
+            setTrackingNotice('This job is no longer active; location sharing has stopped.');
+          } else {
+            setTrackingNotice('Live location could not update. Check your connection.');
+          }
+        }
+      },
+      (permissionDenied) => {
+        if (permissionDenied) {
+          setLocationTrackingAllowed(false);
+          setTrackingNotice('Location permission is off; live location is not being shared.');
+        } else {
+          setTrackingNotice('GPS is temporarily unavailable; the job can continue.');
+        }
+      },
+    ).then((watch) => {
+      if (disposed) {
+        watch.stop();
+        return;
+      }
+      if (watch.status === 'denied') {
+        setLocationTrackingAllowed(false);
+        setTrackingNotice('Location permission is off; live location is not being shared.');
+      } else {
+        stopWatching = watch.stop;
+        setLocationTrackingAllowed(true);
+        setTrackingNotice('Live location is shared with Superadmin while this app is open.');
+      }
+    }).catch(() => {
+      if (!disposed) setTrackingNotice('GPS could not start. The job can continue without live location.');
+    });
+
+    return () => {
+      disposed = true;
+      stopWatching?.();
+    };
+  }, [appIsActive, completion, job?.stage, job?.status, jobId, locationTrackingAllowed]);
+
   const runAction = async (action: () => Promise<any>, nextStep?: number) => {
     setWorking(true);
     setError('');
@@ -115,7 +191,11 @@ export const FieldWorkflowScreen: React.FC<FieldWorkflowScreenProps> = ({ route,
         setStep(nextStep);
         setExpandedStep(nextStep);
         const updatedJob = job
-          ? { ...job, stage: ['accepted', 'checked_in', 'diagnosed', 'parts_used', 'photos_done', 'completed'][nextStep - 1] }
+          ? {
+            ...job,
+            stage: ['accepted', 'checked_in', 'diagnosed', 'parts_used', 'photos_done', 'completed'][nextStep - 1],
+            status: nextStep >= 2 ? 'in_progress' : job.status,
+          }
           : null;
         if (updatedJob) {
           setJob(updatedJob);
@@ -128,6 +208,37 @@ export const FieldWorkflowScreen: React.FC<FieldWorkflowScreenProps> = ({ route,
       return null;
     } finally {
       setWorking(false);
+    }
+  };
+
+  const checkInAtSite = async () => {
+    const location = await captureJobLocation();
+    setLocationTrackingAllowed(location.status === 'granted' ? true : location.status === 'denied' ? false : null);
+    if (location.status === 'denied') {
+      setTrackingNotice('Location permission is off. You can continue, but live location will not be shared.');
+    } else if (location.status === 'unavailable') {
+      setTrackingNotice('GPS is unavailable right now. Live updates will start if GPS becomes available.');
+    }
+    await runAction(() => apiService.checkIn(jobId, location.location || undefined), 2);
+  };
+
+  const enableLiveLocation = async () => {
+    const location = await captureJobLocation();
+    if (location.status === 'denied') {
+      setLocationTrackingAllowed(false);
+      setTrackingNotice('Location permission is off. Live location is not being shared.');
+      return;
+    }
+    setLocationTrackingAllowed(true);
+    setTrackingNotice(location.status === 'granted'
+      ? 'Live location is sharing while this app is open.'
+      : 'GPS is unavailable right now. The app will retry while this job stays active.');
+    if (location.location) {
+      try {
+        await apiService.updateJobLocation(jobId, location.location);
+      } catch {
+        setTrackingNotice('Live location could not update. Check your connection.');
+      }
     }
   };
 
@@ -218,6 +329,8 @@ export const FieldWorkflowScreen: React.FC<FieldWorkflowScreenProps> = ({ route,
   const titles = ['Check-in', 'Diagnosis', 'Parts', 'Photos', 'Sign-off'];
   const jobTitle = job?.title || job?.equipment || 'Service job';
   const jobLocation = [job?.siteArea, job?.siteAddress].filter(Boolean).join(', ');
+  const isTrackingJobActive = job?.status === 'in_progress' &&
+    ['checked_in', 'diagnosed', 'parts_used', 'photos_done'].includes(job?.stage);
   const workflowContent = (
     <>
       <View style={styles.jobSummary}>
@@ -231,6 +344,10 @@ export const FieldWorkflowScreen: React.FC<FieldWorkflowScreenProps> = ({ route,
           </View>
         </View>
         {jobLocation ? <Text style={styles.locationText} numberOfLines={2}>{jobLocation}</Text> : null}
+        {trackingNotice ? <Text style={styles.notice}>{trackingNotice}</Text> : null}
+        {isTrackingJobActive && locationTrackingAllowed === false ? (
+          <AppButton title="Enable live location" onPress={enableLiveLocation} style={styles.finishButton} />
+        ) : null}
       </View>
       <View style={styles.progressCard}>
         <View style={styles.progressHeading}>
@@ -276,8 +393,8 @@ export const FieldWorkflowScreen: React.FC<FieldWorkflowScreenProps> = ({ route,
                 ) : (
                   <>
                     <Text style={styles.body}>Confirm that you have arrived at {jobLocation || 'the customer site'} before checking in.</Text>
-                    <Text style={styles.notice}>GPS verification is not available yet. Check in only when you are at the service location.</Text>
-                    <AppButton title="Check in at site" onPress={() => runAction(() => apiService.checkIn(jobId), 2)} loading={working} disabled={!active} />
+                    <Text style={styles.notice}>After you allow location, Superadmin receives updates only while this checked-in job is active and the app is open. Tracking stops when the job is completed.</Text>
+                    <AppButton title="Check in at site" onPress={checkInAtSite} loading={working} disabled={!active} />
                   </>
                 )) : null}
                 {number === 2 ? (

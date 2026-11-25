@@ -31,7 +31,8 @@ export const authService = {
     return authApi.sendOtp(body);
   },
   async verifyOtp(body) {
-    return persist(await authApi.verifyOtp(await withDevice(body)));
+    const data = await authApi.verifyOtp(await withDevice(body));
+    return data && data.approvalRequired ? data : persist(data);
   },
   async logout() {
     const stored = await secureStorage.get();

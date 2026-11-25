@@ -164,7 +164,10 @@ export function FieldModuleScreen() {
             title={job.title}
             detail={`${job.location || 'Company site'} · ${jobStatusLabel(job.status)}${job.etaMinutes ? ` · ETA ${job.etaMinutes} min` : ''}`}
           >
-            {canUpdateJobs(role) && ['open', 'accepted', 'on_the_way', 'in_progress'].includes(job.status) ? (
+            {job.marketplacePublished ? (
+              <Text style={type.muted}>Published to Energy Hub. Partner updates appear here automatically.</Text>
+            ) : null}
+            {!job.marketplacePublished && canUpdateJobs(role) && ['open', 'accepted', 'on_the_way', 'in_progress'].includes(job.status) ? (
               <View style={styles.actions}>
                 {job.status === 'open' ? (
                   <Button title="Accept" variant="secondary" onPress={() => submit(() => fieldApi.setJobStatus(job.id, { status: 'accepted' }))} />

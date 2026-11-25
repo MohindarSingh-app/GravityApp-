@@ -86,25 +86,6 @@ if (!['', 'dev', 'twilio'].includes(smsProvider)) {
   throw new Error('SMS_PROVIDER must be dev or twilio.');
 }
 
-const devFixedOtp = (process.env.DEV_FIXED_OTP || '').trim();
-if (devFixedOtp && !/^\d{6}$/.test(devFixedOtp)) {
-  throw new Error('DEV_FIXED_OTP must contain exactly 6 digits.');
-}
-if (nodeEnv === 'production' && devFixedOtp) {
-  throw new Error('DEV_FIXED_OTP cannot be set in production.');
-}
-
-const devLoginPhone = (process.env.DEV_LOGIN_PHONE || '').replace(/\D/g, '').slice(-10);
-if (process.env.DEV_LOGIN_PHONE && devLoginPhone.length !== 10) {
-  throw new Error('DEV_LOGIN_PHONE must be a 10-digit mobile number.');
-}
-if (nodeEnv === 'production' && devLoginPhone) {
-  throw new Error('DEV_LOGIN_PHONE cannot be set in production.');
-}
-if (devLoginPhone && !devFixedOtp) {
-  throw new Error('DEV_LOGIN_PHONE needs DEV_FIXED_OTP.');
-}
-
 const configuredOtpHashSecret = (process.env.OTP_HASH_SECRET || '').trim();
 const otpHashSecret = configuredOtpHashSecret || accessTokenSecret;
 if (otpHashSecret.length < 32) {
@@ -137,8 +118,6 @@ const env = {
   lockoutMinutes: intEnv('LOCKOUT_MINUTES', 15, 1, 1440),
   otpTtlSeconds: intEnv('OTP_TTL_SECONDS', 300, 60, 900),
   otpResendCooldownSeconds: intEnv('OTP_RESEND_COOLDOWN_SECONDS', 60, 0, 600),
-  devFixedOtp,
-  devLoginPhone,
   otpMaxAttempts: intEnv('OTP_MAX_ATTEMPTS', 5, 3, 10),
   otpMaxSendsPerHour: intEnv('OTP_MAX_SENDS_PER_HOUR', 5, 1, 20),
   otpHashSecret,

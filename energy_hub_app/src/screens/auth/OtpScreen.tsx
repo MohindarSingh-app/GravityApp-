@@ -60,6 +60,10 @@ export const OtpScreen: React.FC<OtpScreenProps> = ({ route, navigation }) => {
       }
 
       const { token, refreshToken, user, requiresRegistration, registrationId, requiresRoleSelection, roleSelectionToken, availableRoles } = response.data || {};
+      if (response.data?.approvalRequired) {
+        setErrorMessage(response.data.message || 'Your request is awaiting Superadmin approval.');
+        return;
+      }
 
       if (requiresRoleSelection && roleSelectionToken && Array.isArray(availableRoles) && availableRoles.length) {
         navigation.replace('RoleSelect', {

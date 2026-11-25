@@ -10,6 +10,7 @@ const auditService = require('./audit.service');
 const attachmentSupport = require('./customer/support');
 const customerPresenters = require('./customer/presenters');
 const { withTransaction } = require('../../utils/energy_service/transaction');
+const marketplaceSync = require('./marketplace-sync.service');
 
 const OPEN_STATUSES = new Set(['open', 'accepted', 'on_the_way', 'in_progress']);
 const JOB_TRANSITIONS = {
@@ -49,6 +50,7 @@ function toJob(row) {
     slaDueAt: row.sla_due_at,
     etaMinutes: row.eta_minutes,
     notes: row.notes || '',
+    marketplacePublished: row.marketplace_published === true,
     createdAt: row.created_at,
     updatedAt: row.updated_at || row.created_at,
   };
@@ -258,6 +260,7 @@ async function createJob(user, input, req, options = {}) {
   const companyId = requireCompany(user);
   const location = await locationFor(companyId, input.siteId);
   const priority = input.priority || 'scheduled';
+  const marketplacePublished = marketplaceSync.isUnifiedServer();
   const emergencyMinutes = input.slaMinutes || 30;
   const slaDueAt = new Date(Date.now() + (priority === 'emergency' ? emergencyMinutes : 24 * 60) * 60 * 1000);
   const create = async (client) => {
@@ -272,7 +275,17 @@ async function createJob(user, input, req, options = {}) {
       slaDueAt,
       etaMinutes: priority === 'emergency' ? emergencyMinutes : null,
       notes: input.notes,
+      marketplacePublished,
     }, client);
+    if (marketplacePublished) {
+      await marketplaceSync.publishJob(client, {
+        job,
+        companyId,
+        siteId: input.siteId,
+        input,
+        priority,
+      });
+    }
     let signal = null;
     if (priority === 'emergency') {
       signal = await fieldModel.insertSignal({
@@ -299,9 +312,7 @@ async function createJob(user, input, req, options = {}) {
     }
     return { job, signal };
   };
-  const { job, signal } = input.attachmentIds && input.attachmentIds.length
-    ? await withTransaction(create)
-    : await create(null);
+  const { job, signal } = await withTransaction(create);
   await auditService.createAuditLog({
     userId: user.id,
     companyId,
@@ -334,7 +345,19 @@ async function setJobStatus(user, jobId, input, req) {
     });
   }
   const eta = input.status === 'on_the_way' ? (input.etaMinutes || 30) : null;
-  const job = await fieldModel.updateJobStatus(jobId, companyId, input.status, eta);
+  if (existing.marketplace_published && input.status !== 'cancelled') {
+    throw new AppError(
+      'This request is managed by its Energy Hub partner. Check its current status in Service Admin.',
+      409,
+      'MARKETPLACE_STATUS_OWNED_BY_PARTNER',
+    );
+  }
+  const job = await withTransaction(async (client) => {
+    if (existing.marketplace_published) {
+      await marketplaceSync.cancelUnclaimedJob(client, existing.code);
+    }
+    return fieldModel.updateJobStatus(jobId, companyId, input.status, eta, client);
+  });
   if (input.status === 'on_the_way') {
     await fieldModel.closeTransit(companyId);
     await fieldModel.insertSignal({

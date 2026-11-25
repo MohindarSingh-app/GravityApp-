@@ -1,0 +1,40 @@
+<section class="page-head">
+  <div>
+    <h1>Projects</h1>
+    <p>Project requests from the live database. Production updates are not connected.</p>
+  </div>
+</section>
+
+<div class="panel">
+  <div class="panel-head">
+    <div class="panel-title">Project Requests — Panel Fabrication</div>
+  </div>
+  <div class="tbl-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Company</th>
+          <th>Project</th>
+          <th>Panels</th>
+          <th>Value</th>
+          <th>ETA</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (p of ops.projects(); track p.id) {
+        <tr>
+          <td><strong>{{ p.id }}</strong></td>
+          <td>{{ p.company }}</td>
+          <td>{{ p.title }}</td>
+          <td>{{ p.panels }}</td>
+          <td>{{ p.value === null ? 'Not recorded' : '₹' + p.value.toLocaleString('en-IN') }}</td>
+          <td>{{ p.eta }}</td>
+          <td><span class="status-pill" [class]="statusClass(p.status)">{{ p.status }}</span></td>
+        </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+</div>

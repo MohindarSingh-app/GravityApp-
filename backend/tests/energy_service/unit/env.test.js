@@ -16,8 +16,6 @@ const baseEnvironment = {
   TWILIO_AUTH_TOKEN: 'audit-twilio-auth-token',
   TWILIO_FROM_NUMBER: '+14155552671',
   ENABLE_DEV_MAILBOX: 'false',
-  DEV_FIXED_OTP: '',
-  DEV_LOGIN_PHONE: '',
 };
 
 function loadProductionConfig(overrides = {}) {

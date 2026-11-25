@@ -2,6 +2,44 @@ const { db, nowIso } = require('../../db/energy_provider/index');
 const { insertInto, updateTable, parseJson } = require('./helpers');
 
 const TABLE = 'jobs';
+const SERVICE_REFERENCE_PREFIX = 'SA-';
+
+async function syncServiceStatus(job, handle, partner) {
+  if (
+    process.env.UNIFIED_SERVER !== '1'
+    || !job
+    || !job.reference_id
+    || !job.reference_id.startsWith(SERVICE_REFERENCE_PREFIX)
+  ) return;
+
+  const serviceStatus = {
+    open: 'open',
+    accepted: 'accepted',
+    in_progress: 'in_progress',
+    completed: 'completed',
+    cancelled: 'cancelled',
+  }[job.status];
+  if (!serviceStatus) return;
+
+  const result = await handle.run(
+    `UPDATE public.field_jobs
+     SET status = ?,
+         engineer_name = COALESCE(?, engineer_name),
+         engineer_trade = COALESCE(?, engineer_trade),
+         rating = COALESCE(?, rating)
+     WHERE code = ?`,
+    [
+      serviceStatus,
+      partner ? (partner.full_name || partner.name || partner.business_name || 'Energy Hub Partner') : null,
+      partner ? 'Energy Hub Service Partner' : null,
+      partner && Number(partner.rating) > 0 ? Number(partner.rating) : null,
+      job.reference_id.slice(SERVICE_REFERENCE_PREFIX.length),
+    ],
+  );
+  if (!result.affectedRows) {
+    throw new Error(`The Service Admin job linked to ${job.reference_id} could not be updated.`);
+  }
+}
 
 /** Stage machines per job type (documented in db/schema.js). */
 const STAGE_FLOWS = {
@@ -94,10 +132,17 @@ const JobModel = {
     return JobModel.findById(id, handle);
   },
 
-  updateById: async (id, updates, handle = db) => {
-    await updateTable(TABLE, id, { ...updates, updated_at: nowIso() }, handle);
-    return JobModel.findById(id, handle);
+  updateById: async (id, updates, handle) => {
+    const update = async (transaction) => {
+      await updateTable(TABLE, id, { ...updates, updated_at: nowIso() }, transaction);
+      const job = await JobModel.findById(id, transaction);
+      await syncServiceStatus(job, transaction);
+      return job;
+    };
+    return handle ? update(handle) : db.transaction(update);
   },
+
+  syncServiceStatus,
 
   /**
    * Atomically claim an open job. The row-level busy lock ensures each partner

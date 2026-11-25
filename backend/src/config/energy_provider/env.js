@@ -24,8 +24,6 @@ module.exports = {
   SMS_PROVIDER_URL: process.env.SMS_PROVIDER_URL || '',
   SMS_PROVIDER_TOKEN: process.env.SMS_PROVIDER_TOKEN || '',
   SMS_SENDER_ID: process.env.SMS_SENDER_ID || '',
-  FIXED_MOBILE: process.env.FIXED_MOBILE || (IS_PRODUCTION ? '' : '0987654321'),
-  FIXED_OTP: process.env.FIXED_OTP || (IS_PRODUCTION ? '' : '123456'),
   CORS_ORIGIN: process.env.CORS_ORIGIN || '*',
   DATA_DIR: path.join(__dirname, '..', '..', '..', 'data', 'energy_provider'),
 
@@ -46,7 +44,4 @@ module.exports = {
   DB_NAME: process.env.DB_NAME || process.env.HUB_DB_NAME || 'energy_hub',
   DB_SSL: (process.env.DB_SSL || process.env.HUB_DB_SSL) === 'true',
 
-  // Seed a demo partner set on first boot (development convenience only).
-  SEED_DEMO_DATA:
-    NODE_ENV === 'development' && process.env.SEED_DEMO_DATA !== 'false',
 };

@@ -13,6 +13,7 @@ interface FailureState {
 
 export class AuthenticationService {
   private readonly failures = new Map<string, FailureState>();
+  private readonly passwordChangeFailures = new Map<string, FailureState>();
 
   constructor(private readonly store: JsonStore) {}
 
@@ -55,4 +56,47 @@ export class AuthenticationService {
   async recordLogout(user: StoredUser): Promise<void> {
     await this.store.recordAudit(user, 'auth.logout', 'user', user.id);
   }
+
+  async changePassword(
+    user: StoredUser,
+    currentPassword: string,
+    newPassword: string,
+  ): Promise<void> {
+    if (newPassword.length < 12 || newPassword.length > 200) {
+      throw new PasswordChangeError('New password must be between 12 and 200 characters.');
+    }
+    if (currentPassword.length === 0 || currentPassword.length > 200) {
+      throw new PasswordChangeError('Current password is incorrect.');
+    }
+    if (currentPassword === newPassword) {
+      throw new PasswordChangeError('Choose a new password different from your current password.');
+    }
+
+    const now = Date.now();
+    const failure = this.passwordChangeFailures.get(user.id);
+    if (failure?.lockedUntil && failure.lockedUntil > now) {
+      throw new PasswordChangeError('Too many incorrect attempts. Try again in five minutes.');
+    }
+    if (!verifyPassword(currentPassword, user.passwordSalt, user.passwordHash)) {
+      const attempts = failure?.lockedUntil && failure.lockedUntil <= now
+        ? 1
+        : (failure?.attempts ?? 0) + 1;
+      const lockedUntil = attempts >= MAX_ATTEMPTS ? now + LOCK_MS : 0;
+      this.passwordChangeFailures.set(user.id, { attempts, lockedUntil });
+      await this.store.recordAudit(user, 'auth.password_change_failed', 'user', user.id, {
+        locked: lockedUntil > 0,
+      });
+      throw new PasswordChangeError('Current password is incorrect.');
+    }
+
+    const credentials = hashPassword(newPassword);
+    const updated = await this.store.updatePassword(user.id, {
+      passwordSalt: credentials.salt,
+      passwordHash: credentials.hash,
+    }, user);
+    if (!updated) throw new Error('Authenticated user was not found while changing the password.');
+    this.passwordChangeFailures.delete(user.id);
+  }
 }
+
+export class PasswordChangeError extends Error {}

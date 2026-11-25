@@ -36,7 +36,7 @@ interface Job {
 }
 
 interface JobDetailScreenProps {
-  route: { params: { jobId: number; job?: Job } };
+  route: { params: { jobId: number; job?: Job; locationTrackingAllowed?: boolean | null } };
   navigation: any;
 }
 
@@ -169,7 +169,11 @@ export const JobDetailScreen: React.FC<JobDetailScreenProps> = ({ route, navigat
         ) : (
           <FieldWorkflowScreen
             embedded
-            route={{ params: { jobId, job } }}
+            route={{ params: {
+              jobId,
+              job,
+              locationTrackingAllowed: route.params?.locationTrackingAllowed,
+            } }}
             navigation={navigation}
             onJobChange={setJob}
           />

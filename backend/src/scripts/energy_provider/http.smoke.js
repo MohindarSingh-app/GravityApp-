@@ -5,6 +5,8 @@
  */
 
 const { state, check, request, seed, db, server } = require('./http.harness');
+const RegistrationModel = require('../../models/energy_provider/RegistrationModel');
+const UserModel = require('../../models/energy_provider/UserModel');
 
 let listener = null;
 
@@ -25,26 +27,42 @@ const run = async () => {
   });
   check('otp verification succeeds', verify.status === 200, verify.body);
 
-  const token = verify.body?.data?.token;
-  check('a token is issued', !!token);
+  const initialToken = verify.body?.data?.token;
+  check('a token is issued', !!initialToken);
 
   const unauthorised = await request('GET', '/jobs/open');
   check('protected routes need a token', unauthorised.status === 401);
 
   console.log('\nRegistration API access');
+  const registrationMobile = `9${String(Date.now()).slice(-9)}`;
   const registration = await request('POST', '/registration/start', {
-    body: { mobile: '9876543210', email: 'partner@example.com', role: 'service_partner' },
+    body: { mobile: registrationMobile, email: `partner-${registrationMobile}@example.com`, role: 'service_partner' },
   });
   check('registration start creates a draft and sends a separate registration OTP', registration.status === 200 && !!registration.body?.data?.devOtp);
   const registrationId = registration.body?.data?.id;
   const registrationVerify = await request('POST', '/auth/otp/verify', {
     body: {
-      mobile: '9876543210',
+      mobile: registrationMobile,
       otp: registration.body?.data?.devOtp,
       purpose: 'registration',
     },
   });
   check('registration OTP preserves the draft registration ID', String(registrationVerify.body?.data?.registrationId) === String(registrationId));
+  check('registration waits for Superadmin approval before issuing a session', registrationVerify.body?.data?.approvalRequired === true && !registrationVerify.body?.data?.token);
+  await RegistrationModel.updateById(registrationId, { initial_review_status: 'approved' });
+  const registrationLoginRequest = await request('POST', '/auth/otp/request', {
+    body: { mobile: registrationMobile, purpose: 'login' },
+  });
+  const registrationLogin = await request('POST', '/auth/otp/verify', {
+    body: {
+      mobile: registrationMobile,
+      otp: registrationLoginRequest.body?.data?.devOtp,
+      purpose: 'login',
+    },
+  });
+  let token = registrationLogin.body?.data?.token;
+  const registrationUserId = registrationLogin.body?.data?.user?.id;
+  check('approved request can sign in to continue the profile', registrationLogin.status === 200 && !!token, registrationLogin.body);
   const publicChecklist = await request('GET', `/registration/${registrationId}/checklist`);
   check('registration details require authentication', publicChecklist.status === 401);
   const personalDetails = await request('PUT', `/registration/${registrationId}/personal-details`, {
@@ -70,14 +88,19 @@ const run = async () => {
     checklist.body
   );
 
-  const otherOtp = await request('POST', '/auth/otp/request', {
-    body: { mobile: '9000000041', purpose: 'login' },
+  const licenseUpload = await request('POST', `/registration/${registrationId}/documents`, {
+    token,
+    body: {
+      type: 'driving_license_photo',
+      name: 'license.jpg',
+      file: 'http-smoke-license',
+    },
   });
-  const otherLogin = await request('POST', '/auth/otp/verify', {
-    body: { mobile: '9000000041', otp: otherOtp.body?.data?.devOtp, purpose: 'login' },
-  });
+  check('approved request can upload profile documents', licenseUpload.status === 200, licenseUpload.body);
+  await UserModel.updateById(registrationUserId, { role: 'service_partner', status: 'approved' });
+  await RegistrationModel.updateById(registrationId, { status: 'approved' });
   const crossAccount = await request('GET', `/registration/${registrationId}/checklist`, {
-    token: otherLogin.body?.data?.token,
+    token: initialToken,
   });
   check('another account cannot read a registration', crossAccount.status === 403);
 
@@ -89,14 +112,6 @@ const run = async () => {
   console.log('\nDelivery partner verification');
   const currentVerification = await request('GET', '/partner/delivery-verification', { token });
   check('delivery verification endpoint returns the current status', currentVerification.status === 200 && currentVerification.body?.data === null, currentVerification.body);
-  const licenseUpload = await request('POST', `/registration/${registrationId}/documents`, {
-    token,
-    body: {
-      type: 'driving_license_photo',
-      name: 'license.jpg',
-      file: 'http-smoke-license',
-    },
-  });
   const verificationSubmission = await request('POST', '/partner/delivery-verification', {
     token,
     body: {
@@ -171,6 +186,17 @@ const run = async () => {
   console.log('\nFive step workflow');
   const checkin = await request('POST', `/jobs/${jobId}/workflow/check-in`, { token });
   check('check-in succeeds', checkin.status === 200, checkin.body);
+
+  const locationUpdate = await request('POST', `/jobs/${jobId}/workflow/location`, {
+    token,
+    body: { latitude: 18.5204, longitude: 73.8567 },
+  });
+  check('active job accepts a valid live location', locationUpdate.status === 200, locationUpdate.body);
+  const invalidLocation = await request('POST', `/jobs/${jobId}/workflow/location`, {
+    token,
+    body: { latitude: 91, longitude: 73.8567 },
+  });
+  check('live location rejects invalid coordinates', invalidLocation.status === 400, invalidLocation.body);
 
   const diagnosis = await request('POST', `/jobs/${jobId}/workflow/diagnosis`, {
     token,

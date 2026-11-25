@@ -25,6 +25,7 @@ const JobService = {
   // ---- five step field workflow ----------------------------------------
   workflowSteps: (...args) => WorkflowService.steps(...args),
   checkIn: (...args) => WorkflowService.checkIn(...args),
+  recordLiveLocation: (...args) => WorkflowService.recordLiveLocation(...args),
   saveDiagnosis: (...args) => WorkflowService.saveDiagnosis(...args),
   saveParts: (...args) => WorkflowService.saveParts(...args),
   savePhotos: (...args) => WorkflowService.savePhotos(...args),

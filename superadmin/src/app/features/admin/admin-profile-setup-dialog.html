@@ -1,0 +1,50 @@
+@if (required()) {
+  <div class="profile-setup-backdrop">
+    <section class="profile-setup-dialog" role="dialog" aria-modal="true"
+      aria-labelledby="profile-setup-title" aria-describedby="profile-setup-description">
+      <div class="profile-setup-kicker">ACCOUNT SETUP</div>
+      <h2 id="profile-setup-title">Complete your administrator profile</h2>
+      <p id="profile-setup-description">
+        Add your personal details before continuing to the admin workspace.
+      </p>
+
+      <form class="profile-setup-form" (submit)="save($event)">
+        <div class="profile-setup-photo-row">
+          <div class="profile-setup-photo">
+            @if (photoPreview(); as preview) {
+              <img [src]="preview" alt="Profile photo preview" />
+            } @else {
+              <span aria-hidden="true">{{ initials() }}</span>
+            }
+          </div>
+          <div>
+            <label class="profile-setup-photo-button" for="setup-photo">Add profile picture</label>
+            <input id="setup-photo" type="file" accept="image/jpeg,image/png,image/webp"
+              (change)="selectPhoto($event)" />
+            <small>JPEG, PNG or WebP. Required for first-time setup.</small>
+          </div>
+        </div>
+
+        <label for="setup-name">Full name</label>
+        <input id="setup-name" type="text" autocomplete="name" required minlength="2" maxlength="100"
+          [value]="fullName()" (input)="fullName.set(readInput($event))" />
+
+        <label for="setup-email">Access email</label>
+        <input id="setup-email" type="email" autocomplete="email" readonly [value]="currentUser()?.email ?? ''" />
+        <small class="profile-setup-note">This assigned sign-in email cannot be changed here.</small>
+
+        <label for="setup-phone">Contact number</label>
+        <input id="setup-phone" type="tel" autocomplete="tel" required minlength="6" maxlength="32"
+          pattern="[+()0-9.\-\s]+" [value]="phone()" (input)="phone.set(readInput($event))" />
+
+        @if (error()) {
+          <p class="profile-setup-error" role="alert">{{ error() }}</p>
+        }
+
+        <button type="submit" [disabled]="saving()">
+          {{ saving() ? 'Saving profile…' : 'Save and continue' }}
+        </button>
+      </form>
+    </section>
+  </div>
+}

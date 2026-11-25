@@ -1,0 +1,192 @@
+<section class="notifications-page">
+  <header class="inbox-heading">
+    <div class="inbox-title">
+      <span class="inbox-title-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+          stroke-linecap="round" stroke-linejoin="round">
+          <path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9" />
+          <path d="M10 21h4" />
+        </svg>
+      </span>
+      <div>
+        <p class="eyebrow">SUPERADMIN MAILBOX</p>
+        <h1>Notifications</h1>
+        <p class="page-subtitle">A clear view of your latest security and account activity.</p>
+      </div>
+    </div>
+    <span class="feed-status"><span aria-hidden="true"></span> Secure activity feed</span>
+  </header>
+
+  <div class="inbox-toolbar">
+    <label class="search-box">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+        stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="11" cy="11" r="7" />
+        <path d="m20 20-4-4" />
+      </svg>
+      <input type="search" placeholder="Search notifications" [value]="query()"
+        (input)="setQuery($event)" aria-label="Search notifications" />
+    </label>
+    <div class="toolbar-actions">
+      <span class="unread-summary">{{ unreadCount() }} unread</span>
+      @if (unreadCount()) {
+        <button class="action-button primary-action" type="button" (click)="notifications.markAllRead()">
+          Mark all as read
+        </button>
+      }
+      <button class="action-button refresh-action" type="button" (click)="notifications.refresh(true)"
+        [disabled]="notifications.loading()" [attr.aria-label]="notifications.loading() ? 'Refreshing inbox' : 'Refresh inbox'"
+        title="Refresh inbox">
+        <svg [class.spinning]="notifications.loading()" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M20 7v5h-5M4 17v-5h5" />
+          <path d="M5.6 9A7 7 0 0 1 18 6l2 2M4 16l2 2a7 7 0 0 0 12.4-3" />
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  @if (notifications.error()) {
+    <div class="feedback" role="alert">
+      <span>{{ notifications.error() }}</span>
+      <button class="action-button" type="button" (click)="notifications.refresh(true)"
+        [disabled]="notifications.loading()">Try again</button>
+    </div>
+  }
+
+  <div class="inbox-layout">
+    <aside class="mailbox-sidebar" aria-label="Notification folders">
+      <p class="sidebar-caption">MAILBOX</p>
+      @for (option of filters; track option) {
+        <button class="filter-chip" type="button" [class.selected]="filter() === option"
+          [attr.aria-pressed]="filter() === option" (click)="setFilter(option)">
+          @switch (option) {
+            @case ('all') {
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+                stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M4 5h16v14H4z" /><path d="m4 7 8 6 8-6" />
+              </svg>
+            }
+            @case ('unread') {
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+                stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M4 5h16v14H4z" /><path d="m4 7 8 6 8-6" /><circle cx="18" cy="17" r="3" />
+              </svg>
+            }
+            @case ('security') {
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+                stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <path d="M12 3 20 6v5c0 5-3.5 8-8 10-4.5-2-8-5-8-10V6z" /><path d="m9 12 2 2 4-4" />
+              </svg>
+            }
+            @case ('access') {
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+                stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <circle cx="8" cy="15" r="4" /><path d="m11 12 8-8 2 2-2 2 2 2-3 3-2-2-3 3" />
+              </svg>
+            }
+          }
+          <span>{{ filterLabel(option) }}</span>
+          <span class="folder-count">{{ filterCount(option) }}</span>
+        </button>
+      }
+      <div class="sidebar-note">
+        <span class="note-shield" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"
+            stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 3 20 6v5c0 5-3.5 8-8 10-4.5-2-8-5-8-10V6z" />
+          </svg>
+        </span>
+        <strong>System generated</strong>
+        <p>Messages come from the server-recorded audit log.</p>
+      </div>
+    </aside>
+
+    <section class="notification-list" aria-label="Recent notifications">
+      <header class="list-heading">
+        <div>
+          <h2>{{ filterLabel(filter()) }} <span>{{ visibleEvents().length }}</span></h2>
+          <p>Newest messages appear first</p>
+        </div>
+        <span class="result-count">{{ unreadCount() }} unread</span>
+      </header>
+
+      @if (notifications.loading() && !notifications.loaded()) {
+        <div class="empty-state" role="status">
+          <span class="loading-mark" aria-hidden="true"></span>
+          <strong>Loading your inbox</strong>
+          <p>Fetching recent messages from the secure activity log.</p>
+        </div>
+      } @else if (visibleEvents().length) {
+        @for (event of visibleEvents(); track event.id) {
+          <article class="notification-item" [class.unread]="!notifications.isRead(event.id)"
+            [class.expanded]="selectedEventId() === event.id">
+            <button class="mail-row-main" type="button" [attr.aria-expanded]="selectedEventId() === event.id"
+              [attr.aria-controls]="'notification-detail-' + event.id"
+              (click)="openEvent(event)">
+              <span class="sender-avatar" [class.security-avatar]="event.action.startsWith('auth.')"
+                [class.access-avatar]="event.action.startsWith('user.') || event.action.startsWith('permissions.')">
+                {{ senderInitials(event) }}
+              </span>
+              <span class="mail-row-copy">
+                <span class="mail-sender-line">
+                  <strong>{{ senderLabel(event) }}</strong>
+                  <time [attr.datetime]="event.at">{{ formatDate(event.at) }}</time>
+                </span>
+                <span class="mail-subject-line">
+                  <strong>{{ eventTitle(event.action) }}</strong>
+                  <span class="category">{{ eventCategory(event.action) }}</span>
+                </span>
+                <span class="mail-preview">{{ eventPreview(event) }}</span>
+              </span>
+              @if (!notifications.isRead(event.id)) {
+                <span class="unread-dot" aria-label="Unread"></span>
+              }
+            </button>
+            @if (selectedEventId() === event.id) {
+              <div class="message-detail" [id]="'notification-detail-' + event.id">
+                <div class="detail-heading">
+                  <span class="category">{{ eventCategory(event.action) }}</span>
+                  <time [attr.datetime]="event.at">{{ formatDate(event.at) }}</time>
+                </div>
+                <h3>{{ eventTitle(event.action) }}</h3>
+                <p><strong>From:</strong> {{ senderLabel(event) }}</p>
+                @if (event.targetType) {
+                  <p><strong>Related to:</strong> {{ event.targetType }} · {{ event.targetId }}</p>
+                }
+                <p class="detail-body">
+                  {{ eventDetails(event.details) || 'This system event was securely recorded in the administrator activity log.' }}
+                </p>
+                @if (!notifications.isRead(event.id)) {
+                  <button class="mark-read-button" type="button" (click)="markRead(event)">
+                    Mark as read
+                  </button>
+                } @else {
+                  <span class="read-indicator">Read</span>
+                }
+              </div>
+            }
+          </article>
+        }
+      } @else if (filter() === 'unread' && notifications.events().length) {
+        <div class="empty-state">
+          <span class="empty-check" aria-hidden="true">✓</span>
+          <strong>You’re all caught up</strong>
+          <p>There are no unread notifications.</p>
+        </div>
+      } @else if (!notifications.error()) {
+        <div class="empty-state">
+          <span class="empty-bell" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"
+              stroke-linecap="round" stroke-linejoin="round">
+              <path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9" />
+              <path d="M10 21h4" />
+            </svg>
+          </span>
+          <strong>{{ query() ? 'No matching messages' : 'Your inbox is empty' }}</strong>
+          <p>{{ query() ? 'Try another search term or folder.' : 'New security and administrator activity will appear here.' }}</p>
+        </div>
+      }
+    </section>
+  </div>
+</section>

@@ -44,6 +44,7 @@ export function LoginScreen() {
         purpose: 'login',
         expiresIn: result.expiresIn || 300,
         cooldownSeconds: result.cooldownSeconds || 30,
+        devOtp: result.devOtp,
       });
     } catch (err) {
       setError(getErrorMessage(err));

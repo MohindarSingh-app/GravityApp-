@@ -70,6 +70,7 @@ const JobAcceptService = {
         if (!result.affectedRows) {
           throw ApiError.conflict('This job has already been taken');
         }
+        await JobModel.syncServiceStatus({ ...job, status: 'accepted' }, handle, user);
 
         // Seed the five step field workflow for service style jobs.
         if (job.job_type === 'service') {

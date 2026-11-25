@@ -264,6 +264,14 @@ class Database {
         `UPDATE ${quote(this.driver, 'partner_applications')} SET ${quote(this.driver, 'specialization_status')} = 'approved' WHERE ${quote(this.driver, 'specializations')} IS NOT NULL`
       );
     }
+    for (const columnName of ['initial_review_status', 'initial_reviewed_at']) {
+      if (await this.hasColumn('partner_applications', columnName)) continue;
+      const column = tables.partner_applications.columns[columnName];
+      const defaultSql = columnName === 'initial_review_status' ? " DEFAULT 'approved'" : '';
+      await this.run(
+        `ALTER TABLE ${quote(this.driver, 'partner_applications')} ADD COLUMN ${quote(this.driver, columnName)} ${renderType(this.driver, column)}${defaultSql}`
+      );
+    }
     const userSpecializationStatusColumn = tables.users.columns.specialization_status;
     if (!await this.hasColumn('users', 'specialization_status')) {
       await this.run(

@@ -69,6 +69,37 @@ const WorkflowStepModel = makeCrud('job_workflow_steps', {
   defaults: { status: 'pending', recommendServiceCenter: 0 },
 });
 
+const LiveLocationModel = {
+  upsert: async (jobId, latitude, longitude, handle = db) => {
+    const timestamp = nowIso();
+    const sql = db.driver === 'postgres'
+      ? `INSERT INTO job_live_locations (job_id, latitude, longitude, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?)
+         ON CONFLICT (job_id) DO UPDATE
+           SET latitude = EXCLUDED.latitude,
+               longitude = EXCLUDED.longitude,
+               updated_at = EXCLUDED.updated_at`
+      : db.driver === 'mysql'
+        ? `INSERT INTO job_live_locations (job_id, latitude, longitude, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?)
+           ON DUPLICATE KEY UPDATE
+             latitude = VALUES(latitude),
+             longitude = VALUES(longitude),
+             updated_at = VALUES(updated_at)`
+        : `INSERT INTO job_live_locations (job_id, latitude, longitude, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?)
+           ON CONFLICT(job_id) DO UPDATE SET
+             latitude = excluded.latitude,
+             longitude = excluded.longitude,
+             updated_at = excluded.updated_at`;
+    await handle.run(sql, [jobId, latitude, longitude, timestamp, timestamp]);
+    return handle.get('SELECT * FROM job_live_locations WHERE job_id = ?', [jobId]);
+  },
+
+  deleteForJob: async (jobId, handle = db) =>
+    handle.run('DELETE FROM job_live_locations WHERE job_id = ?', [jobId]),
+};
+
 const PartModel = makeCrud('job_parts', {
   columns: {
     jobId: 'job_id',
@@ -332,6 +363,7 @@ const DeliveryVerificationModel = {
 
 module.exports = {
   WorkflowStepModel,
+  LiveLocationModel,
   PartModel,
   PhotoModel,
   StageHistoryModel,

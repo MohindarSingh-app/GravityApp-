@@ -48,6 +48,7 @@ export function RegisterScreen() {
         purpose: 'signup',
         expiresIn: result.expiresIn || 300,
         cooldownSeconds: result.cooldownSeconds || 30,
+        devOtp: result.devOtp,
       });
     } catch (err) {
       if (err && err.code === 'ACCOUNT_EXISTS') {
@@ -59,6 +60,7 @@ export function RegisterScreen() {
             newCompanyRegistration: true,
             expiresIn: result.expiresIn || 300,
             cooldownSeconds: result.cooldownSeconds || 30,
+            devOtp: result.devOtp,
           });
           return;
         } catch (loginErr) {

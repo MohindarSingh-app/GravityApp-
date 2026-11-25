@@ -89,7 +89,6 @@ async function register(input, req) {
   const passwordHash = await passwordService.hashPassword(input.password);
   const client = await pool.connect();
   let user;
-  let session;
   let verificationToken;
 
   try {
@@ -103,7 +102,7 @@ async function register(input, req) {
       passwordHash,
       name: input.fullName || input.name,
       roleId: await roleIdFor(ROLES.USER, client),
-      status: 'active',
+      status: 'pending_approval',
     }, client);
     verificationToken = await issueEmailCode({
       userId: user.id,
@@ -112,11 +111,6 @@ async function register(input, req) {
       ttlMs: env.emailVerificationTtlHours * 60 * 60 * 1000,
       client,
     });
-    session = await tokenService.createSession({
-      userId: user.id,
-      ...tokenService.requestMeta(req),
-    }, client);
-    await userModel.touchLastLogin(user.id, client);
     await client.query('COMMIT');
   } catch (err) {
     try {
@@ -139,14 +133,18 @@ async function register(input, req) {
   });
   await auditService.createAuditLog({
     userId: user.id,
-    action: 'auth.register',
+    action: 'auth.registration_pending_approval',
     entityType: 'user',
     entityId: user.id,
-    description: 'User registered',
+    description: 'Password registration is awaiting Superadmin approval',
     req,
   });
-  const extras = await withOnboarding(user);
-  return buildAuthResult(user, session, extras);
+  return {
+    user: toPublicUser(user),
+    approvalRequired: true,
+    status: 'pending_approval',
+    message: 'Your request has been sent to Superadmin. You can continue onboarding after approval.',
+  };
 }
 
 async function login(input, req) {
@@ -163,6 +161,9 @@ async function login(input, req) {
   }
 
   if (user.status && user.status !== 'active') {
+    if (user.status === 'pending_approval') {
+      throw new AppError('Your registration is awaiting Superadmin approval.', 403, 'APPROVAL_PENDING');
+    }
     throw new AppError('This account is not active.', 403, 'ACCOUNT_INACTIVE');
   }
   if (user.role_status && user.role_status !== 'active') {
@@ -263,7 +264,7 @@ async function verifyOtp(input, req) {
           phone: isEmail ? null : identifier,
           name: input.fullName ? input.fullName.trim() : null,
           roleId: await roleIdFor(ROLES.OWNER, client),
-          status: 'active',
+          status: 'pending_approval',
           emailVerified: isEmail,
           phoneVerified: !isEmail,
         }, client);
@@ -274,6 +275,30 @@ async function verifyOtp(input, req) {
           ? await userModel.findByEmail(identifier, client)
           : await userModel.findByPhone(identifier, client);
       }
+    }
+    if (created && purpose === 'signup') {
+      await auditService.createAuditLog({
+        userId: user.id,
+        action: 'auth.registration_pending_approval',
+        entityType: 'user',
+        entityId: user.id,
+        description: 'OTP-verified registration is awaiting Superadmin approval',
+        req,
+        client,
+      });
+      return {
+        approvalRequired: true,
+        status: 'pending_approval',
+        user: toPublicUser(user),
+        message: 'Your request has been sent to Superadmin. You can continue onboarding after approval.',
+      };
+    }
+    if (user.status === 'pending_approval') {
+      throw new AppError(
+        'Your registration is awaiting Superadmin approval.',
+        403,
+        'APPROVAL_PENDING',
+      );
     }
     if (user.status && user.status !== 'active') {
       throw new AppError('This account is not active.', 403, 'ACCOUNT_INACTIVE');

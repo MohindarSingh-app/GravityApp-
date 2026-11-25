@@ -76,7 +76,7 @@ const AuthService = {
       throw ApiError.badRequest(`Please wait ${waitSeconds}s before requesting a new OTP`);
     }
 
-    const otp = generateOtp(mobile, config);
+    const otp = generateOtp();
     await deliverOtp(mobile, otp);
     const record = await OtpModel.create(mobile, {
       otp,
@@ -191,6 +191,54 @@ const AuthService = {
     if (application) {
       registrationId = application.id;
       requiresRegistration = application.status === 'draft';
+    }
+
+    if (purpose === 'registration' && application && application.status === 'draft') {
+      await RegistrationModel.updateById(application.id, { initial_review_status: 'pending' });
+      await UserModel.updateById(user.id, { status: 'pending' });
+      await AuditLogModel.create({
+        actorId: user.id,
+        entity: 'partner_application',
+        entityId: Number(application.id),
+        action: 'initial_review_requested',
+        afterState: { status: 'pending' },
+      });
+      return {
+        approvalRequired: true,
+        status: 'pending_initial_review',
+        registrationId,
+        user: {
+          id: user.id,
+          mobile: user.mobile,
+          email: user.email,
+          role: user.role,
+          status: user.status,
+        },
+        message: 'Your request has been sent to Superadmin. You can continue your profile after approval.',
+      };
+    }
+
+    if (
+      purpose === 'login'
+      && application
+      && application.initial_review_status !== 'approved'
+      && ['pending', 'rejected'].includes(user.status)
+    ) {
+      return {
+        approvalRequired: true,
+        status: application.initial_review_status === 'rejected' ? 'rejected' : 'pending_initial_review',
+        registrationId,
+        user: {
+          id: user.id,
+          mobile: user.mobile,
+          email: user.email,
+          role: user.role,
+          status: user.status,
+        },
+        message: application.initial_review_status === 'rejected'
+          ? 'Your registration request was rejected. Contact Superadmin for next steps.'
+          : 'Your registration request is awaiting Superadmin approval.',
+      };
     }
 
     const accessToken = signAccessToken(

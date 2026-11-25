@@ -1,4 +1,4 @@
-import { Router, type Response } from 'express5';
+import express, { Router, type Response } from 'express5';
 import {
   isRole,
   PAGES,
@@ -7,12 +7,23 @@ import {
   type PermissionMatrix,
   type Role,
 } from '../domain/permissions.js';
-import type { AuditEvent, StoredUser } from '../domain/models.js';
-import { JsonStore, StoreConflictError } from '../infrastructure/json-store.js';
+import type {
+  AuditEvent,
+  CompanyProfile,
+  PlatformRegistration,
+  PlatformRegistrationDetails,
+  StoredUser,
+} from '../domain/models.js';
+import { InvalidProfileImageError, JsonStore, StoreConflictError } from '../infrastructure/json-store.js';
 import { AccessControlService, InputError, NotFoundError } from '../services/access-control.js';
-import { AuthenticationService } from '../services/authentication.js';
+import { AuthenticationService, PasswordChangeError } from '../services/authentication.js';
 import { SessionManager } from '../services/sessions.js';
-import { readSessionCookie, requireAuth, requirePermission, requireSuperadmin } from './middleware.js';
+import {
+  readSessionCredential,
+  requireAuth,
+  requirePermission,
+  requireSuperadmin,
+} from './middleware.js';
 import { Pool } from 'pg';
 
 interface ApiDependencies {
@@ -22,15 +33,48 @@ interface ApiDependencies {
   sessions: SessionManager;
   secureCookies: boolean;
   localDemoCredentials?: { email: string; password: string } | null;
+  platformDirectory?: {
+    listRegistrations(): Promise<PlatformRegistration[]>;
+    getRegistrationDetails(id: string): Promise<PlatformRegistrationDetails | null>;
+  };
+  operationsDirectory?: {
+    getData(domain: string): Promise<unknown>;
+  };
 }
+
+const OPERATION_PAGES: Record<string, string> = {
+  jobs: 'jobs',
+  livemonitor: 'livemonitor',
+  verification: 'verification',
+  disputes: 'disputes',
+  companies: 'companies',
+  amc: 'amc',
+  finance: 'finance',
+  invoices: 'invoices',
+  inventory: 'inventory',
+  repair: 'repair',
+  projects: 'projects',
+  analytics: 'analytics',
+  'partner-app': 'partner-app',
+};
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return !!value && typeof value === 'object' && !Array.isArray(value);
 }
 
+export function isLoopbackAddress(address: string | undefined): boolean {
+  const normalized = address?.toLowerCase();
+  if (!normalized) return false;
+  return normalized === '::1' ||
+    /^127(?:\.\d{1,3}){3}$/.test(normalized) ||
+    /^::ffff:127(?:\.\d{1,3}){3}$/.test(normalized);
+}
+
 function publicUser(user: StoredUser) {
+  if (!user.userCode) throw new Error('The user reference code is unavailable.');
   return {
     id: user.id,
+    userCode: user.userCode,
     name: user.name,
     email: user.email,
     role: user.role,
@@ -51,6 +95,57 @@ function parseUserUpdate(body: unknown): { role: Role; disabled: boolean } | nul
   return { role: body.role, disabled: body.disabled };
 }
 
+function parseProfileInput(
+  body: unknown,
+): { name: string; phone: string | null; completeSetup?: boolean } | null {
+  if (!isRecord(body) || typeof body.name !== 'string' ||
+      Object.keys(body).some((key) => !['name', 'phone', 'completeSetup'].includes(key)) ||
+      ('completeSetup' in body && typeof body.completeSetup !== 'boolean')) return null;
+  const phone = body.phone;
+  if (phone !== null && typeof phone !== 'string') return null;
+  return {
+    name: body.name,
+    phone,
+    ...(body.completeSetup === true ? { completeSetup: true } : {}),
+  };
+}
+
+function parseCompanyProfileInput(body: unknown): CompanyProfile | null {
+  if (!isRecord(body) ||
+      typeof body.companyName !== 'string' ||
+      typeof body.phone !== 'string' ||
+      typeof body.email !== 'string' ||
+      typeof body.gstin !== 'string' ||
+      Object.keys(body).some((key) =>
+        !['companyName', 'phone', 'email', 'gstin'].includes(key))) return null;
+
+  const companyProfile: CompanyProfile = {
+    companyName: body.companyName.trim(),
+    phone: body.phone.trim(),
+    email: body.email.trim().toLowerCase(),
+    gstin: body.gstin.trim().toUpperCase(),
+  };
+  const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const gstinPattern = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/;
+  const phonePattern = /^[+()\d.\-\s]+$/;
+  if (companyProfile.companyName.length > 150 ||
+      companyProfile.phone.length > 32 ||
+      (companyProfile.phone.length > 0 &&
+        (companyProfile.phone.length < 6 || !phonePattern.test(companyProfile.phone))) ||
+      companyProfile.email.length > 254 ||
+      (companyProfile.email.length > 0 && !emailPattern.test(companyProfile.email)) ||
+      (companyProfile.gstin.length > 0 && !gstinPattern.test(companyProfile.gstin))) return null;
+  return companyProfile;
+}
+
+function parsePasswordInput(body: unknown): { currentPassword: string; newPassword: string } | null {
+  if (!isRecord(body) ||
+      typeof body.currentPassword !== 'string' ||
+      typeof body.newPassword !== 'string' ||
+      Object.keys(body).some((key) => key !== 'currentPassword' && key !== 'newPassword')) return null;
+  return { currentPassword: body.currentPassword, newPassword: body.newPassword };
+}
+
 function sendServiceError(response: Response, error: unknown): void {
   if (error instanceof InputError) {
     response.status(400).json({ message: error.message });
@@ -64,9 +159,18 @@ function sendServiceError(response: Response, error: unknown): void {
 }
 
 export function createApiRouter(dependencies: ApiDependencies): Router {
-  const { store, access, authentication, sessions, secureCookies, localDemoCredentials } = dependencies;
+  const {
+    store,
+    access,
+    authentication,
+    sessions,
+    secureCookies,
+    localDemoCredentials,
+    platformDirectory,
+    operationsDirectory,
+  } = dependencies;
   const router = Router();
-  const authenticate = requireAuth(store, sessions);
+  const authenticate = requireAuth(store, sessions, access);
   const operationsPool = new Pool({
     connectionString: process.env.DATABASE_URL,
     max: 5,
@@ -235,9 +339,36 @@ export function createApiRouter(dependencies: ApiDependencies): Router {
       response.json({ company: result.rows[0] });
     },
   );
+  router.get(
+    '/admin/operations/:domain',
+    authenticate,
+    async (request, response): Promise<void> => {
+      const domain = request.params['domain'];
+      const page = typeof domain === 'string' ? OPERATION_PAGES[domain] : undefined;
+      if (!page) {
+        response.status(404).json({ message: 'The operations data source was not found.' });
+        return;
+      }
+      if (!(await access.can(request.authUser!, page, 'view'))) {
+        response.status(403).json({ message: 'You do not have permission to view this operations data.' });
+        return;
+      }
+      if (!operationsDirectory) {
+        response.status(503).json({ message: 'The operations database is unavailable.' });
+        return;
+      }
+      const data = await operationsDirectory.getData(domain);
+      if (!data) {
+        response.status(404).json({ message: 'The operations data source was not found.' });
+        return;
+      }
+      response.json(data);
+    },
+  );
 
-  router.get('/auth/local-demo', (_request, response): void => {
-    response.json(localDemoCredentials
+  router.get('/auth/local-demo', (request, response): void => {
+    const isLocalRequest = isLoopbackAddress(request.socket.remoteAddress);
+    response.json(localDemoCredentials && isLocalRequest
       ? { enabled: true, credentials: localDemoCredentials }
       : { enabled: false });
   });
@@ -253,6 +384,14 @@ export function createApiRouter(dependencies: ApiDependencies): Router {
       response.status(400).json({ message: 'Email or password is invalid.' });
       return;
     }
+    if (
+      localDemoCredentials &&
+      body.email.trim().toLowerCase() === localDemoCredentials.email &&
+      !isLoopbackAddress(request.socket.remoteAddress)
+    ) {
+      response.status(401).json({ message: 'Invalid email or password.' });
+      return;
+    }
 
     const user = await authentication.authenticate(body.email, body.password, request.ip ?? 'unknown');
     if (!user) {
@@ -261,45 +400,223 @@ export function createApiRouter(dependencies: ApiDependencies): Router {
     }
 
     const session = sessions.create(user.id);
-    response.cookie('eh_session', session.id, {
-      httpOnly: true,
-      secure: secureCookies,
-      sameSite: 'lax',
-      path: '/',
-      expires: new Date(session.expiresAt),
-    });
     response.json({
       user: await access.sessionUser(user),
       expiresAt: session.expiresAt,
+      impersonation: null,
+      sessionToken: session.id,
     });
   });
 
   router.get('/auth/me', async (request, response): Promise<void> => {
-    const sessionId = readSessionCookie(request.headers.cookie);
+    const credential = readSessionCredential(request.headers.cookie, request.headers.authorization);
+    const sessionId = credential.sessionId;
     const session = sessionId ? sessions.get(sessionId) : undefined;
     const user = session ? await store.getUserById(session.userId) : undefined;
-    if (!sessionId || !session || !user || user.disabled) {
+    if (!sessionId || !session || !user || user.disabled ||
+        (session.impersonatedBy && user.role === 'superadmin')) {
       if (sessionId && session) sessions.revoke(sessionId);
       response.json({ user: null, expiresAt: null });
       return;
     }
+    let impersonation: { actorId: string; actorName: string; actorEmail: string } | null = null;
+    if (session.impersonatedBy) {
+      const actor = await store.getUserById(session.impersonatedBy.id);
+      if (!actor || actor.disabled || actor.role !== 'superadmin' ||
+          !(await access.can(actor, 'users', 'view')) ||
+          !(await access.can(actor, 'users', 'edit'))) {
+        sessions.revoke(sessionId);
+        response.json({ user: null, expiresAt: null });
+        return;
+      }
+      impersonation = {
+        actorId: session.impersonatedBy.id,
+        actorName: session.impersonatedBy.name,
+        actorEmail: session.impersonatedBy.email,
+      };
+    }
     response.json({
       user: await access.sessionUser(user),
       expiresAt: session.expiresAt,
+      impersonation,
     });
+  });
+
+  router.post(
+    '/auth/impersonation/exchange',
+    async (request, response): Promise<void> => {
+      const body = request.body as Record<string, unknown> | undefined;
+      if (!body || typeof body.token !== 'string' || !/^[A-Za-z0-9_-]{40,60}$/.test(body.token)) {
+        response.status(400).json({ message: 'A valid one-time launch token is required.' });
+        return;
+      }
+      const launch = sessions.consumeImpersonationLaunch(body.token);
+      if (!launch) {
+        response.status(401).json({ message: 'This user-panel link is invalid or has expired.' });
+        return;
+      }
+      const actor = await store.getUserById(launch.actorId);
+      const target = await store.getUserById(launch.targetId);
+      if (!actor || actor.disabled || actor.role !== 'superadmin' ||
+          !(await access.can(actor, 'users', 'view')) ||
+          !(await access.can(actor, 'users', 'edit'))) {
+        response.status(403).json({ message: 'The Superadmin no longer has permission to open user panels.' });
+        return;
+      }
+      if (!target || target.disabled || target.role === 'superadmin' || target.id === actor.id) {
+        response.status(403).json({ message: 'This account cannot be opened as a user panel.' });
+        return;
+      }
+      await store.recordAudit(actor, 'auth.impersonation_started', 'user', target.id, {
+        impersonatedUserEmail: target.email,
+        expiresInMinutes: 30,
+      });
+      const session = sessions.createImpersonationSession(target.id, {
+        id: actor.id,
+        name: actor.name,
+        email: actor.email,
+      });
+      response.json({
+        sessionToken: session.id,
+        user: await access.sessionUser(target),
+        expiresAt: session.expiresAt,
+        impersonation: {
+          actorId: actor.id,
+          actorName: actor.name,
+          actorEmail: actor.email,
+        },
+      });
+    },
+  );
+
+  router.patch('/auth/profile', authenticate, async (request, response): Promise<void> => {
+    const input = parseProfileInput(request.body);
+    if (!input) {
+      response.status(400).json({ message: 'A name and phone number are required.' });
+      return;
+    }
+    if (input.completeSetup && request.authSession?.impersonatedBy) {
+      response.status(403).json({ message: 'Admin profile setup must be completed from the assigned account.' });
+      return;
+    }
+    try {
+      const user = await access.updateProfile(request.authUser!, input);
+      response.json({ user: await access.sessionUser(user) });
+    } catch (error) {
+      sendServiceError(response, error);
+    }
+  });
+
+  router.get('/auth/profile/company', authenticate, async (_request, response): Promise<void> => {
+    response.json({ companyProfile: await store.getCompanyProfile() });
+  });
+
+  router.patch(
+    '/auth/profile/company',
+    authenticate,
+    requirePermission(access, 'settings', 'edit'),
+    async (request, response): Promise<void> => {
+      const input = parseCompanyProfileInput(request.body);
+      if (!input) {
+        response.status(400).json({ message: 'Enter a valid company name, phone, email, and GSTIN.' });
+        return;
+      }
+      response.json({ companyProfile: await store.updateCompanyProfile(input, request.authUser!) });
+    },
+  );
+
+  router.post('/auth/profile/password', authenticate, async (request, response): Promise<void> => {
+    if (request.authSession?.impersonatedBy) {
+      response.status(403).json({ message: 'Password changes are unavailable while viewing another account.' });
+      return;
+    }
+    const input = parsePasswordInput(request.body);
+    if (!input) {
+      response.status(400).json({ message: 'Current and new passwords are required.' });
+      return;
+    }
+    const currentSessionId = request.authSessionId;
+    if (!currentSessionId) {
+      response.status(401).json({ message: 'Authentication required.' });
+      return;
+    }
+    try {
+      await authentication.changePassword(
+        request.authUser!,
+        input.currentPassword,
+        input.newPassword,
+      );
+    } catch (error) {
+      if (error instanceof PasswordChangeError) {
+        response.status(400).json({ message: error.message });
+        return;
+      }
+      throw error;
+    }
+    sessions.revokeOtherSessions(request.authUser!.id, currentSessionId);
+    response.status(204).end();
+  });
+
+  router.put(
+    '/auth/profile/avatar',
+    authenticate,
+    express.raw({
+      type: ['image/jpeg', 'image/png', 'image/webp'],
+      limit: '512kb',
+    }),
+    async (request, response): Promise<void> => {
+      const contentType = request.get('content-type')?.split(';', 1)[0];
+      if (!Buffer.isBuffer(request.body) ||
+          (contentType !== 'image/jpeg' && contentType !== 'image/png' && contentType !== 'image/webp')) {
+        response.status(400).json({ message: 'Upload a JPEG, PNG, or WebP profile photo.' });
+        return;
+      }
+      try {
+        const user = await store.updateAvatar(
+          request.authUser!.id,
+          { contentType, bytes: request.body },
+          request.authUser!,
+        );
+        if (!user) {
+          response.status(404).json({ message: 'User not found.' });
+          return;
+        }
+        response.json({ user: await access.sessionUser(user) });
+      } catch (error) {
+        if (error instanceof InvalidProfileImageError) {
+          response.status(400).json({ message: error.message });
+          return;
+        }
+        throw error;
+      }
+    },
+  );
+
+  router.get('/auth/profile/avatar', authenticate, async (request, response): Promise<void> => {
+    const avatar = await store.getAvatar(request.authUser!.id);
+    if (!avatar) {
+      response.status(404).json({ message: 'No profile photo is set.' });
+      return;
+    }
+    response.setHeader('Content-Type', avatar.contentType);
+    response.setHeader('X-Content-Type-Options', 'nosniff');
+    response.send(avatar.bytes);
+  });
+
+  router.delete('/auth/profile/avatar', authenticate, async (request, response): Promise<void> => {
+    const user = await store.updateAvatar(request.authUser!.id, null, request.authUser!);
+    if (!user) {
+      response.status(404).json({ message: 'User not found.' });
+      return;
+    }
+    response.json({ user: await access.sessionUser(user) });
   });
 
   router.post('/auth/logout', authenticate, async (request, response): Promise<void> => {
     const user = request.authUser!;
-    const sessionId = readSessionCookie(request.headers.cookie);
+    const sessionId = request.authSessionId;
     if (sessionId) sessions.revoke(sessionId);
     await authentication.recordLogout(user);
-    response.clearCookie('eh_session', {
-      httpOnly: true,
-      secure: secureCookies,
-      sameSite: 'lax',
-      path: '/',
-    });
     response.status(204).end();
   });
 
@@ -345,6 +662,109 @@ export function createApiRouter(dependencies: ApiDependencies): Router {
     requirePermission(access, 'users', 'view'),
     async (_request, response): Promise<void> => {
       response.json({ users: (await store.listUsers()).map(publicUser) });
+    },
+  );
+
+  router.post(
+    '/admin/users/:id/impersonation',
+    authenticate,
+    requirePermission(access, 'users', 'view'),
+    requirePermission(access, 'users', 'edit'),
+    requireSuperadmin,
+    async (request, response): Promise<void> => {
+      const id = request.params['id'];
+      if (typeof id !== 'string') {
+        response.status(400).json({ message: 'A valid user id is required.' });
+        return;
+      }
+      const actor = request.authUser!;
+      const target = await store.getUserById(id);
+      if (!target || target.disabled || target.role === 'superadmin' || target.id === actor.id) {
+        response.status(403).json({ message: 'This account cannot be opened as a user panel.' });
+        return;
+      }
+      const launch = sessions.createImpersonationLaunch(actor.id, target.id);
+      await store.recordAudit(actor, 'auth.impersonation_link_created', 'user', target.id, {
+        expiresInSeconds: 60,
+      });
+      response.json({ launchToken: launch.token, expiresAt: launch.expiresAt });
+    },
+  );
+
+  router.get(
+    '/admin/registrations/:id',
+    authenticate,
+    requirePermission(access, 'directory', 'view'),
+    async (request, response): Promise<void> => {
+      if (!platformDirectory) {
+        response.status(503).json({ message: 'The platform registration directory is unavailable.' });
+        return;
+      }
+      const details = await platformDirectory.getRegistrationDetails(request.params['id']);
+      if (!details) {
+        response.status(404).json({ message: 'The registered account was not found.' });
+        return;
+      }
+      response.json({ details });
+    },
+  );
+
+  router.post(
+    '/admin/registrations/:id/review',
+    authenticate,
+    requirePermission(access, 'directory', 'edit'),
+    async (request, response, next): Promise<void> => {
+      if (request.authUser?.role !== 'superadmin') {
+        response.status(403).json({ message: 'Only a Superadmin can review registrations.' });
+        return;
+      }
+      if (!platformDirectory) {
+        response.status(503).json({ message: 'The platform registration directory is unavailable.' });
+        return;
+      }
+      const decision = request.body?.decision;
+      const reason = typeof request.body?.reason === 'string' ? request.body.reason : '';
+      if (!['approved', 'rejected'].includes(decision)) {
+        response.status(400).json({ message: 'Choose approve or reject.' });
+        return;
+      }
+      try {
+        const registration = await platformDirectory.reviewRegistration(request.params['id'], { decision, reason });
+        if (!registration) {
+          response.status(404).json({ message: 'The registered account was not found.' });
+          return;
+        }
+        await store.recordAudit(
+          request.authUser!,
+          `registration.${decision}`,
+          'registration',
+          request.params['id'],
+          { reason: decision === 'rejected' ? reason.trim() : null, status: registration.status },
+        );
+        response.json({ registration });
+      } catch (error) {
+        if (error && typeof error === 'object' && 'statusCode' in error) {
+          const statusCode = Number((error as { statusCode: unknown }).statusCode);
+          if (Number.isInteger(statusCode) && statusCode >= 400 && statusCode < 600) {
+            response.status(statusCode).json({ message: (error as Error).message });
+            return;
+          }
+        }
+        next(error);
+      }
+    },
+  );
+
+  router.get(
+    '/admin/registrations',
+    authenticate,
+    requirePermission(access, 'directory', 'view'),
+    async (_request, response): Promise<void> => {
+      if (!platformDirectory) {
+        response.status(503).json({ message: 'The platform registration directory is unavailable.' });
+        return;
+      }
+      response.json({ registrations: await platformDirectory.listRegistrations() });
     },
   );
 
@@ -430,6 +850,27 @@ export function createApiRouter(dependencies: ApiDependencies): Router {
       try {
         const user = await access.updateUser(id, input, request.authUser!);
         response.json({ user: publicUser(user) });
+      } catch (error) {
+        sendServiceError(response, error);
+      }
+    },
+  );
+
+  router.delete(
+    '/admin/users/:id',
+    authenticate,
+    requirePermission(access, 'users', 'delete'),
+    requireSuperadmin,
+    async (request, response): Promise<void> => {
+      const id = request.params['id'];
+      if (typeof id !== 'string') {
+        response.status(400).json({ message: 'A valid user id is required.' });
+        return;
+      }
+      try {
+        await access.deleteUser(id, request.authUser!);
+        sessions.revokeUserAccess(id);
+        response.status(204).end();
       } catch (error) {
         sendServiceError(response, error);
       }

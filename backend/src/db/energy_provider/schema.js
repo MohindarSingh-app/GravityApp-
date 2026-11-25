@@ -95,6 +95,8 @@ const tables = {
       partner_role: { type: 'text' },
       // draft | under_review | needs_information | approved | rejected | suspended
       status: { type: 'text', default: 'draft' },
+      initial_review_status: { type: 'text', default: 'approved' },
+      initial_reviewed_at: { type: 'datetime' },
       current_step: { type: 'int', default: 0 },
       personal_details: { type: 'json' },
       professional_details: { type: 'json' },
@@ -259,6 +261,21 @@ const tables = {
     indexes: [
       { name: 'job', columns: ['job_id'] },
       { name: 'job_step', columns: ['job_id', 'step_number'], unique: true },
+    ],
+  },
+
+  job_live_locations: {
+    columns: {
+      id: { type: 'id' },
+      job_id: { type: 'int', references: { table: 'jobs', column: 'id' } },
+      latitude: { type: 'real' },
+      longitude: { type: 'real' },
+      created_at: { type: 'datetime' },
+      updated_at: { type: 'datetime' },
+    },
+    indexes: [
+      { name: 'job', columns: ['job_id'], unique: true },
+      { name: 'updated_at', columns: ['updated_at'] },
     ],
   },
 

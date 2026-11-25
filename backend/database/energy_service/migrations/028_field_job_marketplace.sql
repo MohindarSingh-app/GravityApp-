@@ -1,0 +1,2 @@
+ALTER TABLE field_jobs
+  ADD COLUMN IF NOT EXISTS marketplace_published BOOLEAN NOT NULL DEFAULT FALSE;

@@ -179,7 +179,9 @@ export function JobTrackingScreen() {
           onCall={assigned || SUPPORT_PHONE ? callSpecialist : undefined}
           onChat={assigned || SUPPORT_PHONE ? messageSpecialist : undefined}
           onShare={shareTracking}
-          onCancel={isActiveJob(job) && !busy ? cancelRequest : undefined}
+          onCancel={isActiveJob(job) && !busy && (!job.marketplacePublished || job.status === 'open')
+            ? cancelRequest
+            : undefined}
         />
       ) : null}
     </Screen>

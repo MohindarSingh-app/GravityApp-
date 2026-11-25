@@ -41,6 +41,7 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ route, navigatio
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [devOtp, setDevOtp] = useState('');
+  const [approvalMessage, setApprovalMessage] = useState('');
 
   const { login } = useAuth();
 
@@ -87,6 +88,11 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ route, navigatio
         return;
       }
       const result = response.data;
+      if (result?.approvalRequired) {
+        setApprovalMessage(result.message || 'Your request is waiting for Superadmin approval.');
+        setStep('done');
+        return;
+      }
       if (!result?.token || !result.user) {
         setError('Invalid response from server');
         return;
@@ -197,21 +203,25 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({ route, navigatio
     if (step === 'done') {
       return (
         <>
-          <Text style={styles.title}>Mobile Verified</Text>
+          <Text style={styles.title}>{approvalMessage ? 'Request Submitted' : 'Mobile Verified'}</Text>
           <Text style={styles.subtitle}>
-            Your mobile number has been verified. Continue to complete your partner profile.
+            {approvalMessage || 'Your mobile number has been verified. Continue to complete your partner profile.'}
           </Text>
-          <AppButton
-            title="Continue to Profile"
-            onPress={() =>
-              navigation.replace('PersonalInfo', {
-                registrationId,
-                mobile,
-                email,
-                partnerRole: selectedRole,
-              })
-            }
-          />
+          {approvalMessage ? (
+            <AppButton title="Back to Sign In" onPress={() => navigation.replace('Login')} />
+          ) : (
+            <AppButton
+              title="Continue to Profile"
+              onPress={() =>
+                navigation.replace('PersonalInfo', {
+                  registrationId,
+                  mobile,
+                  email,
+                  partnerRole: selectedRole,
+                })
+              }
+            />
+          )}
         </>
       );
     }

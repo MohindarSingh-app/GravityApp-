@@ -148,7 +148,13 @@ const JobService = {
       })
       : visibleJobs;
 
-    return matchedJobs.map((job) => {
+    const alreadyMatched = new Set(matchedJobs.map((job) => String(job.id)));
+    const serviceAdminJobs = user.role === 'service_partner'
+      && (user.status === 'approved' || activeApplication?.status === 'approved')
+      ? visibleJobs.filter((job) => job.reference_id && job.reference_id.startsWith('SA-'))
+        .filter((job) => !alreadyMatched.has(String(job.id)))
+      : [];
+    return [...matchedJobs, ...serviceAdminJobs].map((job) => {
       const api = JobModel.toApi(job, { includePii: this.canSeePii(user) });
       // Even when the raw number is hidden, a masked form is useful for the
       // partner to identify the right customer.

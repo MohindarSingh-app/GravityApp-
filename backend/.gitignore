@@ -5,3 +5,4 @@ node_modules/
 .DS_Store
 /data/superadmin-access-control.json
 /data/superadmin-access-control.json.*.tmp
+/data/superadmin-access-control.json.avatars/

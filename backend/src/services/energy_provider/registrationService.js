@@ -21,6 +21,13 @@ const {
 } = require('../../utils/energy_provider/constants');
 
 const MAX_PROFILE_PHOTO_BYTES = 2 * 1024 * 1024;
+const INITIAL_REVIEW_REQUIRED = 'Your registration request must be approved before completing the partner profile.';
+
+function assertInitialApproval(application) {
+  if (application.initial_review_status !== 'approved') {
+    throw ApiError.forbidden(INITIAL_REVIEW_REQUIRED);
+  }
+}
 
 const validateProfilePhoto = (dataUrl) => {
   if (typeof dataUrl !== 'string') {
@@ -76,7 +83,10 @@ const RegistrationService = {
     const existingRoleApplication = roleApplications.find(
       (item) => item.partner_role === role && item.status !== 'rejected'
     );
-    if (existingRoleApplication && existingRoleApplication.status !== 'draft') {
+    if (
+      existingRoleApplication
+      && (existingRoleApplication.status !== 'draft' || existingRoleApplication.initial_review_status === 'approved')
+    ) {
       throw ApiError.conflict('This partner role is already registered for this mobile number. Please log in instead.');
     }
 
@@ -129,6 +139,7 @@ const RegistrationService = {
   async savePersonalDetails(id, details) {
     const application = await RegistrationModel.findById(id);
     if (!application) throw ApiError.notFound('Registration not found');
+    assertInitialApproval(application);
     if (application.status !== 'draft') throw ApiError.conflict('Submitted role registrations cannot be changed');
 
     const emergencyContact = String(details.emergencyContact || details.emergencyContactPhone || '').trim();
@@ -171,6 +182,7 @@ const RegistrationService = {
   async saveProfessionalDetails(id, details) {
     const application = await RegistrationModel.findById(id);
     if (!application) throw ApiError.notFound('Registration not found');
+    assertInitialApproval(application);
 
     const role = details.partnerType || details.partnerRole;
     if (!VALID_ROLES.includes(role)) {
@@ -225,6 +237,7 @@ const RegistrationService = {
   async saveBankDetails(id, details) {
     const application = await RegistrationModel.findById(id);
     if (!application) throw ApiError.notFound('Registration not found');
+    assertInitialApproval(application);
     if (application.status !== 'draft') throw ApiError.conflict('Submitted role registrations cannot be changed');
 
     if (!details.accountNumber || !details.ifscCode) {
@@ -258,6 +271,7 @@ const RegistrationService = {
   async saveServiceArea(id, { serviceAreas, serviceArea, travelRadiusKm }) {
     const application = await RegistrationModel.findById(id);
     if (!application) throw ApiError.notFound('Registration not found');
+    assertInitialApproval(application);
     if (application.status !== 'draft') throw ApiError.conflict('Submitted role registrations cannot be changed');
 
     const areas = Array.isArray(serviceAreas)
@@ -296,6 +310,7 @@ const RegistrationService = {
   async uploadDocument(id, { type, name, file, mimeType, sizeBytes }) {
     const application = await RegistrationModel.findById(id);
     if (!application) throw ApiError.notFound('Registration not found');
+    assertInitialApproval(application);
     if (application.status !== 'draft') throw ApiError.conflict('Submitted role registrations cannot be changed');
     if (!type || !file) {
       throw ApiError.badRequest('Document type and file are required');
@@ -334,6 +349,7 @@ const RegistrationService = {
   async deleteDocument(id, docId) {
     const application = await RegistrationModel.findById(id);
     if (!application) throw ApiError.notFound('Registration not found');
+    assertInitialApproval(application);
     if (application.status !== 'draft') throw ApiError.conflict('Submitted role registrations cannot be changed');
     const documents = await DocumentModel.findByApplication(id);
     const found = documents.find((doc) => String(doc.id) === String(docId));
@@ -365,6 +381,7 @@ const RegistrationService = {
   async submit(id, { consent }) {
     const application = await RegistrationModel.findById(id);
     if (!application) throw ApiError.notFound('Registration not found');
+    assertInitialApproval(application);
     if (!consent) throw ApiError.badRequest('Consent is required to submit the application');
     if (application.status === 'under_review' || application.status === 'approved') {
       throw ApiError.conflict('Application has already been submitted');
@@ -424,9 +441,12 @@ const RegistrationService = {
     const application = await RegistrationModel.findById(id);
     if (!application) throw ApiError.notFound('Registration not found');
 
-    const status = application.status || 'under_review';
+    const status = application.initial_review_status === 'pending'
+      ? 'pending_initial_review'
+      : application.status || 'under_review';
     const messages = {
       draft: 'Your application is not submitted yet.',
+      pending_initial_review: 'Your request is waiting for Superadmin approval.',
       under_review: 'Your application is under review. Review usually takes 24-48 hours.',
       needs_information: 'Additional information is required to continue the review.',
       approved: 'Your application has been approved.',

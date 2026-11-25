@@ -1,0 +1,42 @@
+<section class="page-head">
+  <div>
+    <h1>Disputes</h1>
+    <p>Customer & partner disputes — investigate and resolve.</p>
+  </div>
+</section>
+
+@if (ops.sourceStatus('disputes') === 'not-connected') {
+<div class="panel">
+  <div class="panel-body empty-state">No disputes database table or API is connected. No sample disputes are shown.</div>
+</div>
+} @else {
+<div class="tabs">
+  <button type="button" class="tab" [class.active]="activeFilter === 'all'" (click)="setFilter('all')">All <span class="count">{{ count('all') }}</span></button>
+  <button type="button" class="tab" [class.active]="activeFilter === 'open'" (click)="setFilter('open')">Open <span class="count">{{ count('open') }}</span></button>
+  <button type="button" class="tab" [class.active]="activeFilter === 'investigating'" (click)="setFilter('investigating')">Investigating <span class="count">{{ count('investigating') }}</span></button>
+  <button type="button" class="tab" [class.active]="activeFilter === 'resolved'" (click)="setFilter('resolved')">Resolved <span class="count">{{ count('resolved') }}</span></button>
+</div>
+<div class="card-list">
+  @for (d of filtered(); track d.id) {
+  <div class="op-card">
+    <div class="oc-icon">⚠</div>
+    <div class="oc-main">
+      <strong>{{ d.reason }}</strong>
+      <small>{{ d.id }} · Job {{ d.job }} · Partner: {{ d.partner }} · ₹{{ d.amount.toLocaleString('en-IN') }} · {{
+        d.openedAt }}</small>
+    </div>
+    <div class="oc-actions">
+      <span class="status-pill" [class]="statusClass(d.status)">{{ d.status }}</span>
+      @if (d.status !== 'resolved') {
+      <button class="btn sm" (click)="ops.resolveDispute(d.id, 'investigating')">Investigate</button>
+      <button class="btn sm primary" (click)="ops.resolveDispute(d.id, 'resolved')">Resolve</button>
+      }
+    </div>
+  </div>
+  } @empty {
+  <div class="panel">
+    <div class="panel-body empty-state">No disputes in this filter.</div>
+  </div>
+  }
+</div>
+}

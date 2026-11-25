@@ -60,7 +60,6 @@ async function start() {
 
   await hub.prepareDatabase();
   await copyProviderData();
-  await hub.seedIfNeeded();
   await migrate();
   await connectDatabase();
   await passwordService.warmUp();

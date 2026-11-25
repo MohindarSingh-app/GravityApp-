@@ -82,15 +82,9 @@ const prepareDatabase = async () => {
   console.log(`Database ready (${db.describe()})`);
 };
 
-const seedIfNeeded = async () => {
-  if (!config.SEED_DEMO_DATA) return;
-  await require('../../scripts/energy_provider/seedDemoPartner').seedDemoPartner();
-};
-
 const start = async () => {
   try {
     await prepareDatabase();
-    await seedIfNeeded();
   } catch (err) {
     console.error('Database initialisation failed:', err.message);
     throw err;
@@ -120,6 +114,5 @@ module.exports = {
   server: serverPromise,
   start,
   prepareDatabase,
-  seedIfNeeded,
   validateProductionConfiguration,
 };

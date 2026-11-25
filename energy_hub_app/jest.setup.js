@@ -7,6 +7,15 @@ jest.mock('react-native-config', () => ({
   default: { API_URL: 'http://127.0.0.1:3000' },
 }));
 
+jest.mock('@react-native-community/geolocation', () => ({
+  __esModule: true,
+  default: {
+    getCurrentPosition: jest.fn((_success, error) => error?.({ code: 2 })),
+    watchPosition: jest.fn(() => 1),
+    clearWatch: jest.fn(),
+  },
+}));
+
 jest.mock('@react-native-documents/picker', () => ({
   pick: jest.fn(),
   keepLocalCopy: jest.fn(),

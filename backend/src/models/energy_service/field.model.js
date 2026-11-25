@@ -40,7 +40,7 @@ async function listJobs(companyId, client) {
   const result = await db(client).query(
     `SELECT id, company_id, site_id, code, title, category, priority, status,
             location_label, engineer_name, engineer_trade, rating, estimate_amount,
-            sla_due_at, eta_minutes, notes, created_at, updated_at
+            sla_due_at, eta_minutes, notes, marketplace_published, created_at, updated_at
      FROM field_jobs
      WHERE company_id = $1
      ORDER BY created_at DESC
@@ -54,7 +54,7 @@ async function findJob(id, companyId, client) {
   const result = await db(client).query(
     `SELECT id, company_id, site_id, code, title, category, priority, status,
             location_label, engineer_name, engineer_trade, rating, estimate_amount,
-            sla_due_at, eta_minutes, notes, created_at
+            sla_due_at, eta_minutes, notes, marketplace_published, created_at
      FROM field_jobs
      WHERE id = $1 AND company_id = $2`,
     [id, companyId],
@@ -66,12 +66,12 @@ async function insertJob(record, client) {
   const result = await db(client).query(
     `INSERT INTO field_jobs (
        company_id, site_id, code, title, category, priority, status,
-       location_label, sla_due_at, eta_minutes, notes
+       location_label, sla_due_at, eta_minutes, notes, marketplace_published
      )
-     VALUES ($1, $2, $3, $4, $5, $6, 'open', $7, $8, $9, $10)
+     VALUES ($1, $2, $3, $4, $5, $6, 'open', $7, $8, $9, $10, $11)
      RETURNING id, company_id, site_id, code, title, category, priority, status,
                location_label, engineer_name, engineer_trade, rating, estimate_amount,
-               sla_due_at, eta_minutes, notes, created_at`,
+               sla_due_at, eta_minutes, notes, marketplace_published, created_at`,
     [
       record.companyId,
       record.siteId || null,
@@ -83,6 +83,7 @@ async function insertJob(record, client) {
       record.slaDueAt,
       record.etaMinutes || null,
       record.notes || null,
+      record.marketplacePublished || false,
     ],
   );
   return result.rows[0];
@@ -96,7 +97,7 @@ async function updateJobStatus(id, companyId, status, etaMinutes, client) {
      WHERE id = $1 AND company_id = $2
      RETURNING id, company_id, site_id, code, title, category, priority, status,
                location_label, engineer_name, engineer_trade, rating, estimate_amount,
-               sla_due_at, eta_minutes, notes, created_at`,
+               sla_due_at, eta_minutes, notes, marketplace_published, created_at`,
     [id, companyId, status, etaMinutes || null],
   );
   return result.rows[0] || null;

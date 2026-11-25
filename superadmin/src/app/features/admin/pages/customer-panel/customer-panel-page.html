@@ -1,0 +1,25 @@
+<section class="page-head">
+  <div>
+    <h1>Customer Panel Overview</h1>
+    <p>Code-defined feature inventory. Runtime enable/disable controls are not connected to the customer application.</p>
+  </div>
+  <span class="pill">Informational</span>
+</section>
+
+<div class="section-grid">
+  @for (s of sections; track s.id) {
+  <div class="section-card">
+    <div class="sc-top">
+      <div>
+        <strong>{{ s.title }}</strong>
+        <code>{{ s.desc }}</code>
+      </div>
+      <span class="role-count">Not runtime-controlled</span>
+    </div>
+    <div class="sc-foot">
+      <span class="dot"></span>
+      Informational
+    </div>
+  </div>
+  }
+</div>

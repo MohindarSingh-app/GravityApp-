@@ -43,7 +43,12 @@ const listWorkflowSteps = asyncHandler(async (req, res) =>
 
 /** POST /api/v1/jobs/:id/workflow/check-in */
 const checkIn = asyncHandler(async (req, res) =>
-  ok(res, 'Checked in at site', await JobService.checkIn(req.user, req.params.id))
+  ok(res, 'Checked in at site', await JobService.checkIn(req.user, req.params.id, req.body || {}))
+);
+
+/** POST /api/v1/jobs/:id/workflow/location */
+const recordLiveLocation = asyncHandler(async (req, res) =>
+  ok(res, 'Live location updated', await JobService.recordLiveLocation(req.user, req.params.id, req.body || {}))
 );
 
 /** POST /api/v1/jobs/:id/workflow/diagnosis */
@@ -112,6 +117,7 @@ module.exports = {
   declineJob,
   listWorkflowSteps,
   checkIn,
+  recordLiveLocation,
   saveDiagnosis,
   saveParts,
   savePhotos,

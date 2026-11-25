@@ -6,6 +6,7 @@ import { AppHeader, goBackOrHome } from '../../components/AppHeader';
 import { registerThemeStyles, theme } from '../../components/theme';
 import { useUserPreferences } from '../../providers/UserPreferencesProvider';
 import { apiService } from '../../services/api';
+import { captureJobLocation } from '../../services/jobLocation';
 
 type AcceptedJob = {
   id: number;
@@ -61,8 +62,13 @@ export const JobAcceptedScreen: React.FC<{
     setWorking(true);
     setError('');
     try {
-      const response = await apiService.checkIn(jobId);
-      navigation.replace('JobDetail', { jobId, job: response.data || job });
+      const location = await captureJobLocation();
+      const response = await apiService.checkIn(jobId, location.location || undefined);
+      navigation.replace('JobDetail', {
+        jobId,
+        job: response.data || job,
+        locationTrackingAllowed: location.status === 'granted' ? true : location.status === 'denied' ? false : null,
+      });
     } catch (checkInError: any) {
       setError(checkInError.response?.data?.message || 'Could not check in to this job.');
     } finally {
@@ -133,6 +139,7 @@ export const JobAcceptedScreen: React.FC<{
         <View style={styles.checkinCard}>
           <Text style={styles.checkinTitle}>Check in when you arrive</Text>
           <Text style={styles.checkinCopy}>Only check in after reaching the job site. The workflow opens after check-in.</Text>
+          <Text style={styles.checkinCopy}>If allowed, location is shared with Superadmin only during this active job while the app stays open. It stops when the job is completed.</Text>
           {error ? <Text accessibilityRole="alert" style={styles.error}>{error}</Text> : null}
           <AppButton title="I am at the site — Check in" onPress={checkIn} loading={working} disabled={!jobId} />
         </View>

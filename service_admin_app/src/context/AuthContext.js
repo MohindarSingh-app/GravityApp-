@@ -104,6 +104,7 @@ export function AuthProvider({ children }) {
 
   const verifyOtp = useCallback(async (body, options = {}) => {
     const data = await authService.verifyOtp(body);
+    if (data && data.approvalRequired) return data;
     setNewCompanyRegistration(Boolean(options.newCompanyRegistration));
     setPostAuthRoute(null);
     return enterSession(data);

@@ -39,11 +39,29 @@ async function onboardingUser() {
   assert.equal(send.status, 200, send.text);
   assert.equal(send.payload.success, true);
   assert.equal(send.payload.data.otp, undefined);
-  const otp = smsService.peekDevOtp(`+91${phone}`);
+  const otp = send.payload.data.devOtp || smsService.peekDevOtp(`+91${phone}`);
   assert.ok(otp && /^\d{6}$/.test(otp));
-  const verified = await api(harness.base, '/api/auth/verify-otp', {
+  const registration = await api(harness.base, '/api/auth/verify-otp', {
     method: 'POST',
     body: { phone, otp, purpose: 'signup', fullName: 'Test User' },
+  });
+  assert.equal(registration.status, 200, registration.text);
+  assert.equal(registration.payload.data.approvalRequired, true);
+  assert.equal(registration.payload.data.status, 'pending_approval');
+  assert.equal(registration.payload.data.accessToken, undefined);
+  await pool.query('UPDATE public.users SET status = $1 WHERE id = $2', [
+    'active',
+    registration.payload.data.user.id,
+  ]);
+  const loginRequest = await api(harness.base, '/api/auth/send-otp', {
+    method: 'POST',
+    body: { phone },
+  });
+  assert.equal(loginRequest.status, 200, loginRequest.text);
+  const loginOtp = loginRequest.payload.data.devOtp || smsService.peekDevOtp(`+91${phone}`);
+  const verified = await api(harness.base, '/api/auth/verify-otp', {
+    method: 'POST',
+    body: { phone, otp: loginOtp },
   });
   assert.equal(verified.status, 200, verified.text);
   assert.equal(verified.payload.data.onboardingStatus, 'COMPANY_PENDING');
@@ -55,7 +73,7 @@ async function onboardingUser() {
   };
 }
 
-test('OTP send never returns the code and verify creates a session', async () => {
+test('OTP send reveals codes only in development and signup waits for approval', async () => {
   const session = await onboardingUser();
   assert.ok(session.token);
   assert.ok(!String(session.refreshToken).includes('.'));
@@ -84,19 +102,37 @@ test('email OTP registers an account and signs in existing accounts', async () =
   });
   assert.equal(signup.status, 200, signup.text);
 
-  const signupOtp = emailService.peekDevOtp(email);
+  const signupOtp = signup.payload.data.devOtp || emailService.peekDevOtp(email);
   assert.ok(signupOtp && /^\d{6}$/.test(signupOtp));
   const registered = await api(harness.base, '/api/auth/verify-otp', {
     method: 'POST',
     body: { email, purpose: 'signup', otp: signupOtp },
   });
   assert.equal(registered.status, 200, registered.text);
+  assert.equal(registered.payload.data.approvalRequired, true);
+  assert.equal(registered.payload.data.status, 'pending_approval');
+  assert.equal(registered.payload.data.accessToken, undefined);
   assert.equal(registered.payload.data.user.emailVerified, true);
-  assert.equal(registered.payload.data.onboardingStatus, 'COMPANY_PENDING');
+  await pool.query('UPDATE public.users SET status = $1 WHERE id = $2', [
+    'active',
+    registered.payload.data.user.id,
+  ]);
+  const initialLogin = await api(harness.base, '/api/auth/send-otp', {
+    method: 'POST',
+    body: { email },
+  });
+  assert.equal(initialLogin.status, 200, initialLogin.text);
+  const initialLoginOtp = initialLogin.payload.data.devOtp || emailService.peekDevOtp(email);
+  const activeSession = await api(harness.base, '/api/auth/verify-otp', {
+    method: 'POST',
+    body: { email, otp: initialLoginOtp },
+  });
+  assert.equal(activeSession.status, 200, activeSession.text);
+  const token = activeSession.payload.data.accessToken;
 
   const company = await api(harness.base, '/api/companies', {
     method: 'POST',
-    token: registered.payload.data.accessToken,
+    token,
     body: {
       companyName: 'Email Onboarding Co',
       gst: uniqueGstin(),
@@ -110,7 +146,7 @@ test('email OTP registers an account and signs in existing accounts', async () =
 
   const site = await api(harness.base, `/api/companies/${companyId}/sites`, {
     method: 'POST',
-    token: registered.payload.data.accessToken,
+    token,
     body: {
       siteName: 'Email User Plant',
       fullAddress: 'Plot 12, MIDC Road',
@@ -125,24 +161,13 @@ test('email OTP registers an account and signs in existing accounts', async () =
 
   const profile = await api(harness.base, '/api/profile', {
     method: 'POST',
-    token: registered.payload.data.accessToken,
+    token,
     body: { fullName: 'Email User' },
   });
   assert.equal(profile.status, 200, profile.text);
   assert.equal(profile.payload.data.onboardingStatus, 'ONBOARDING_COMPLETED');
 
-  const loginSend = await api(harness.base, '/api/auth/send-otp', {
-    method: 'POST',
-    body: { email },
-  });
-  assert.equal(loginSend.status, 200, loginSend.text);
-  const loginOtp = emailService.peekDevOtp(email);
-  const loggedIn = await api(harness.base, '/api/auth/verify-otp', {
-    method: 'POST',
-    body: { email, otp: loginOtp },
-  });
-  assert.equal(loggedIn.status, 200, loggedIn.text);
-  assert.equal(loggedIn.payload.data.user.id, registered.payload.data.user.id);
+  assert.equal(activeSession.payload.data.user.id, registered.payload.data.user.id);
 });
 
 test('wrong OTP is rejected and attempt limit is enforced', async () => {

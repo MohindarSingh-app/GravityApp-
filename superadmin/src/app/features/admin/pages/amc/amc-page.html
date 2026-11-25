@@ -1,0 +1,51 @@
+<section class="page-head">
+  <div>
+    <h1>AMC Contracts</h1>
+    <p>Annual maintenance contracts — renewals & compliance visits.</p>
+  </div>
+</section>
+
+@if (ops.expiringAmcs().length) {
+<div class="panel renewal-alert">
+  <div class="panel-head">
+    <div class="panel-title">Renewal alert</div>
+  </div>
+  <div class="panel-body">
+    @for (a of ops.expiringAmcs(); track a.id) {
+    <p><strong>{{ a.company }}</strong> — {{ a.plan }} expires in <strong>{{ a.daysLeft }}
+        days</strong> ({{ a.expires }}) · {{ a.compliance }}</p>
+    }
+  </div>
+</div>
+}
+
+<div class="panel">
+  <div class="tbl-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Contract</th>
+          <th>Company</th>
+          <th>Plan</th>
+          <th>Expires</th>
+          <th>Days Left</th>
+          <th>Compliance</th>
+          <th>Value</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (a of ops.amcs; track a.id) {
+        <tr>
+          <td><strong>{{ a.id }}</strong></td>
+          <td>{{ a.company }}</td>
+          <td>{{ a.plan }}</td>
+          <td>{{ a.expires }}</td>
+          <td><span class="status-pill" [class]="daysClass(a.daysLeft)">{{ a.daysLeft }} days</span></td>
+          <td>{{ a.compliance }}</td>
+          <td>{{ a.value === null ? 'Not recorded' : '₹' + a.value.toLocaleString('en-IN') }}</td>
+        </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+</div>

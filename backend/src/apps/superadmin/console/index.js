@@ -21,9 +21,12 @@ function createSuperadminConsole(options = {}) {
           const dataFile = options.dataFile
             || process.env.SUPERADMIN_DATA_FILE
             || path.resolve(__dirname, '../../../../data/superadmin-access-control.json');
+          const storage = options.storage
+            || (Object.prototype.hasOwnProperty.call(options, 'dataFile') ? 'json' : 'database');
           router.use(await createSuperadminRouter({
             bootstrap,
             dataFile: path.resolve(dataFile),
+            storage,
           }));
         })().catch((error) => {
           initializePromise = undefined;
